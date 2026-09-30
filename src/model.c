@@ -24,13 +24,17 @@
 
 /* ================================================================ config */
 
-void aster_config_default(AsterConfig *cfg) {
+void aster_config_default(AsterConfig *cfg, const AsterVocab *v) {
     cfg->n_layer = ASTER_DEFAULT_LAYERS;
     cfg->n_head  = ASTER_DEFAULT_HEADS;
     cfg->d_model = ASTER_DEFAULT_DMODEL;
     cfg->d_ff    = ASTER_DEFAULT_DFF;
     cfg->context = ASTER_DEFAULT_CTX;
-    cfg->vocab   = ASTER_VOCAB;
+    cfg->vocab   = aster_vocab_size(v);
+}
+
+void aster_config_set_vocab(AsterConfig *cfg, const AsterVocab *v) {
+    cfg->vocab = aster_vocab_size(v);
 }
 
 int aster_config_validate(const AsterConfig *cfg, char *err, size_t errlen) {
@@ -40,7 +44,8 @@ int aster_config_validate(const AsterConfig *cfg, char *err, size_t errlen) {
     if (cfg->d_model < 8 || cfg->d_model > 4096) BAD("d_model must be 8..4096");
     if (cfg->d_ff    < 1 || cfg->d_ff > 65536)   BAD("d_ff must be 1..65536");
     if (cfg->context < 8 || cfg->context > 8192) BAD("context must be 8..8192");
-    if (cfg->vocab != ASTER_VOCAB)               BAD("vocab is fixed at 261 for the byte tokenizer");
+    if (cfg->vocab < ASTER_BASE_VOCAB || cfg->vocab > ASTER_MAX_VOCAB)
+        BAD("vocab must be between 261 (no merges) and 1285 (1024 merges)");
     if (cfg->d_model % cfg->n_head != 0)         BAD("d_model must be divisible by n_head");
     if ((long long)cfg->d_model * cfg->d_ff > 8000000LL) BAD("d_model * d_ff is unreasonably large");
     return 0;
@@ -181,12 +186,30 @@ static float logsumexp(const float *v, int n) {
 
 /* ============================================================ allocation */
 
-AsterModel *aster_model_new(const AsterConfig *cfg, uint32_t seed, int want_grads) {
+AsterModel *aster_model_new(const AsterConfig *cfg, const AsterVocab *v,
+                            uint32_t seed, int want_grads) {
     char err[160];
     if (aster_config_validate(cfg, err, sizeof err) != 0) aster_fail("%s", err);
+    /* A config that disagrees with the vocabulary it is paired with would size
+     * the parameter block wrongly. That surfaces much later as a model that
+     * trains to a plausible loss and generates nonsense, so it is checked
+     * here where the cause is still obvious. */
+    if (cfg->vocab != aster_vocab_size(v))
+        aster_fail("config says vocab %d but the vocabulary defines %d; they must match",
+                   cfg->vocab, aster_vocab_size(v));
 
     AsterModel *m = (AsterModel *)aster_xcalloc(1, sizeof *m);
     m->cfg = *cfg;
+    /* Take a copy rather than a pointer: the caller's vocabulary may be a
+     * stack temporary, and a model that outlives it would be reading freed
+     * memory. The rank index is shared rather than duplicated -- it is
+     * derived and read-only once built. */
+    m->vocab = *v;
+    m->vocab.tok_bytes = NULL;
+    m->vocab.rank = NULL;
+    char verr[256];
+    if (aster_vocab_finalize(&m->vocab, 1, verr, sizeof verr) != 0)
+        aster_fail("vocabulary is not usable: %s", verr);
     aster_offsets_init(&m->off, cfg);
     m->head_dim = cfg->d_model / cfg->n_head;
     m->params = (float *)aster_xcalloc((size_t)m->off.total, sizeof(float));
@@ -229,6 +252,7 @@ AsterModel *aster_model_new(const AsterConfig *cfg, uint32_t seed, int want_grad
 
 void aster_model_free(AsterModel *m) {
     if (!m) return;
+    aster_vocab_free(&m->vocab);
     free(m->params);
     free(m->grads);
     free(m);
@@ -686,6 +710,15 @@ static uint32_t get_u32(const unsigned char *p) {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
+static void put_u16(unsigned char *p, uint16_t v) {
+    p[0] = (unsigned char)(v & 0xFFu);
+    p[1] = (unsigned char)((v >> 8) & 0xFFu);
+}
+
+static uint16_t get_u16(const unsigned char *p) {
+    return (uint16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
+}
+
 static void put_f32(unsigned char *p, float f) {
     uint32_t bits;
     memcpy(&bits, &f, sizeof bits);
@@ -699,9 +732,21 @@ static float get_f32(const unsigned char *p) {
     return f;
 }
 
-/* 14 u32 fields plus the f32 temperature_default slot. */
-#define CK_HEADER_U32 15
-#define CK_HEADER_BYTES (8 + 4 * CK_HEADER_U32)
+/* 15 u32 fields, then the f32 temperature slot and the f64 bytes_per_token
+ * slot, then the merge table, then the weights. */
+#define CK_HEADER_U32 16
+#define CK_HEADER_BYTES (8 + 4 * CK_HEADER_U32 + 8)
+#define CK_INTEGRITY_BYTES 36          /* u32 crc32 + u8 sha256[32] */
+
+static void put_u64(unsigned char *p, uint64_t v) {
+    for (int i = 0; i < 8; ++i) p[i] = (unsigned char)((v >> (8 * i)) & 0xFFu);
+}
+
+static uint64_t get_u64(const unsigned char *p) {
+    uint64_t v = 0;
+    for (int i = 0; i < 8; ++i) v |= (uint64_t)p[i] << (8 * i);
+    return v;
+}
 
 void aster_checkpoint_save(const AsterModel *m, const char *path,
                            const float *adam_m, const float *adam_v,
@@ -711,7 +756,10 @@ void aster_checkpoint_save(const AsterModel *m, const char *path,
     const uint32_t total = (uint32_t)o->total;
     const int has_opt = (adam_m && adam_v) ? 1 : 0;
     const size_t floats = (size_t)total * (has_opt ? 3u : 1u);
-    const size_t bytes = CK_HEADER_BYTES + floats * 4;
+    const uint32_t nm = (uint32_t)m->vocab.n_merges;
+    const size_t merge_bytes = (size_t)nm * 4;
+    const size_t body = CK_HEADER_BYTES + merge_bytes + floats * 4;
+    const size_t bytes = body + CK_INTEGRITY_BYTES;
     unsigned char *buf = (unsigned char *)aster_xmalloc(bytes);
 
     memcpy(buf, ASTER_CHECKPOINT_MAGIC, 8);
@@ -726,14 +774,35 @@ void aster_checkpoint_save(const AsterModel *m, const char *path,
     WU(total);
     WU(step); WU(seed); WU(has_opt); WU(max_new_tokens);
     WF(temperature);
+    WU(nm);
 #undef WU
 #undef WF
+    /* The IEEE-754 bit pattern, NOT the numeric value. `(uint64_t)3.6839` is
+     * 3, and reading it back gives exactly 3.0 -- so the checkpoint stored a
+     * truncated compression ratio that looked plausible and was wrong. */
+    {
+        uint64_t bits;
+        double bpt = m->vocab.bytes_per_token;
+        memcpy(&bits, &bpt, 8);
+        put_u64(buf + off, bits);
+    }
+    off += 8;
+    for (uint32_t i = 0; i < nm; ++i) {
+        put_u16(buf + off, m->vocab.merge_a[i]); off += 2;
+        put_u16(buf + off, m->vocab.merge_b[i]); off += 2;
+    }
     for (uint32_t i = 0; i < total; ++i) { put_f32(buf + off, m->params[i]); off += 4; }
     if (has_opt) {
         for (uint32_t i = 0; i < total; ++i) { put_f32(buf + off, adam_m[i]); off += 4; }
         for (uint32_t i = 0; i < total; ++i) { put_f32(buf + off, adam_v[i]); off += 4; }
     }
-    if (off != bytes) aster_fail("internal: checkpoint size mismatch (%zu vs %zu)", off, bytes);
+    if (off != body) aster_fail("internal: checkpoint size mismatch (%zu vs %zu)", off, body);
+
+    /* The integrity block goes last, over everything before it. Verification
+     * on load is then one contiguous pass with no offsets to get wrong. */
+    put_u32(buf + body, aster_crc32(buf, body));
+    aster_sha256_raw(buf, body, buf + body + 4);
+
     aster_write_file_atomic(path, buf, bytes);
     free(buf);
 }
@@ -750,8 +819,30 @@ AsterModel *aster_checkpoint_load(const char *path,
     unsigned char *hdr = (unsigned char *)aster_read_file(path, &flen, &ok);
     if (!ok || !hdr) { snprintf(err, errlen, "cannot open checkpoint '%s'", path); return NULL; }
 
-    if (flen < CK_HEADER_BYTES) BAD("file is truncated: too short to be a checkpoint");
+    if (flen < CK_HEADER_BYTES + CK_INTEGRITY_BYTES)
+        BAD("file is truncated: too short to be a checkpoint");
     if (memcmp(hdr, ASTER_CHECKPOINT_MAGIC, 8) != 0) BAD("bad magic bytes: this is not an Aster checkpoint");
+
+    /* Integrity first, before anything is interpreted. A damaged file should
+     * be reported as damaged, not as whatever its corrupted fields happen to
+     * claim -- otherwise a flipped byte in the weight block reads as a valid
+     * file with slightly wrong numbers, which is the worst possible outcome. */
+    {
+        const size_t body = flen - CK_INTEGRITY_BYTES;
+        const uint32_t want_crc = get_u32(hdr + body);
+        unsigned char want_sha[32];
+        memcpy(want_sha, hdr + body + 4, 32);
+        unsigned char got_sha[32];
+        aster_sha256_raw(hdr, body, got_sha);
+        if (aster_crc32(hdr, body) != want_crc || memcmp(got_sha, want_sha, 32) != 0) {
+            free(hdr);
+            snprintf(err, errlen,
+                     "this checkpoint is damaged: its CRC-32 and SHA-256 do not match its "
+                     "contents, so it was not written completely or has been modified. "
+                     "It cannot be loaded, and nothing should be concluded from it.");
+            return NULL;
+        }
+    }
 
     size_t o = 8;
     uint32_t format = get_u32(hdr + o); o += 4;
@@ -770,20 +861,56 @@ AsterModel *aster_checkpoint_load(const char *path,
     uint32_t has_opt = get_u32(hdr + o); o += 4;
     o += 4;  /* max_new_tokens */
     o += 4;  /* temperature */
+    uint32_t n_merges = get_u32(hdr + o); o += 4;
+    /* Reinterpret the stored 8 bytes as a double; do NOT cast the integer to
+     * one. `(double)0x400FB6D1B60C6D75` is 4.6e18, not 3.9. */
+    double bytes_per_token;
+    {
+        uint64_t bits = get_u64(hdr + o);
+        memcpy(&bytes_per_token, &bits, 8);
+    }
+    o += 8;
 
     if (format != ASTER_CHECKPOINT_FORMAT) BAD("unsupported checkpoint format version");
     if (arch != ASTER_ARCH_VERSION)        BAD("checkpoint architecture version does not match this build");
+    if (tokver == 1)
+        BAD("this checkpoint was trained with the byte tokenizer (v1); this build uses a "
+            "learned BPE (v2), and the two have incompatible vocabularies. The model has to "
+            "be retrained from scratch:  aster train --data <your text> --out <path>.  "
+            "The old file is not corrupt.");
     if (tokver != ASTER_TOKENIZER_VERSION) BAD("checkpoint tokenizer version does not match this build");
+    if (n_merges > ASTER_MAX_MERGES) BAD("checkpoint declares more merges than this build supports");
+    if (cfg.vocab != (int)n_merges + ASTER_BASE_VOCAB)
+        BAD("checkpoint vocabulary size disagrees with its own merge count");
     if (aster_config_validate(&cfg, err, errlen) != 0) { free(hdr); return NULL; }
     if (declared != (uint32_t)aster_param_count(&cfg))
         BAD("checkpoint parameter count disagrees with its own configuration");
     if (has_opt > 1) BAD("checkpoint optimizer flag is corrupt");
 
     size_t want_floats = (size_t)declared * (has_opt ? 3u : 1u);
-    if (flen != CK_HEADER_BYTES + want_floats * 4)
-        BAD("checkpoint size does not match its declared contents");
+    size_t want_bytes = CK_HEADER_BYTES + (size_t)n_merges * 4 + want_floats * 4 + CK_INTEGRITY_BYTES;
+    if (flen != want_bytes) BAD("checkpoint size does not match its declared contents");
 
-    AsterModel *m = aster_model_new(&cfg, 1u, 0);
+    /* The merge table is rebuilt into a real vocabulary before any weight is
+     * read, and aster_vocab_finalize validates every pair. A table naming a
+     * token that did not exist when it was learned, or swallowing a
+     * structural marker, is rejected here with a message that says which. */
+    AsterVocab v;
+    aster_vocab_init(&v);
+    v.n_merges = (int)n_merges;
+    for (uint32_t i = 0; i < n_merges; ++i) {
+        v.merge_a[i] = get_u16(hdr + o); o += 2;
+        v.merge_b[i] = get_u16(hdr + o); o += 2;
+    }
+    v.bytes_per_token = bytes_per_token;
+    char verr[256];
+    if (aster_vocab_finalize(&v, 1, verr, sizeof verr) != 0) {
+        aster_vocab_free(&v);
+        BAD(verr);
+    }
+
+    AsterModel *m = aster_model_new(&cfg, &v, 1u, 0);
+    aster_vocab_free(&v);
     for (uint32_t i = 0; i < declared; ++i) {
         m->params[i] = get_f32(hdr + o);
         o += 4;
@@ -819,16 +946,35 @@ void gen_params_default(GenParams *g) {
     g->system = NULL;
 }
 
-int aster_prompt_budget(const AsterConfig *cfg, int max_new_tokens, int system_bytes) {
+int aster_prompt_budget(const AsterConfig *cfg, int max_new_tokens, int system_tokens) {
     int reserve = max_new_tokens;
     if (reserve > cfg->context - 1) reserve = cfg->context - 1;
     if (reserve < 1) reserve = 1;
-    if (system_bytes < 0) system_bytes = 0;
+    if (system_tokens < 0) system_tokens = 0;
     /* Fixed overhead is SYSTEM, USER, END, ASSISTANT; the system text sits
      * between SYSTEM and USER and is charged to the user's budget so a long
      * system prompt cannot silently overflow the context. */
-    int budget = cfg->context - reserve - 4 - system_bytes;
+    int budget = cfg->context - reserve - 4 - system_tokens;
     return budget < 0 ? 0 : budget;
+}
+
+int aster_prompt_budget_for(const AsterModel *m, int max_new_tokens, const char *system) {
+    int sys_tokens = 0;
+    if (system && *system) {
+        TokenList sl;
+        token_list_init(&sl);
+        if (tok_encode(&m->vocab, system, strlen(system), &sl) == 0) sys_tokens = (int)sl.count;
+        token_list_free(&sl);
+    }
+    return aster_prompt_budget(&m->cfg, max_new_tokens, sys_tokens);
+}
+
+size_t aster_generate_out_cap(const AsterModel *m) {
+    /* Worst case raw output is context-many tokens each spelling the longest
+     * token in the vocabulary, and sanitising can triple that, because one
+     * invalid byte becomes a three-byte U+FFFD. */
+    const size_t worst = (size_t)m->cfg.context * (size_t)aster_vocab_max_token_bytes(&m->vocab);
+    return worst * 3 + 1;
 }
 
 /* Keep only the k largest logits; everything else is masked to -infinity. */
@@ -878,21 +1024,28 @@ static int sample_next(const float *logits, int V, const GenParams *gp, uint32_t
 }
 
 size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
-                      char *out, size_t cap, int *hit_end, int *truncated) {
+                      char *out, size_t cap, int *hit_end, int *left_turn,
+                      int *truncated) {
     const AsterConfig *cfg = &m->cfg;
+    const AsterVocab *v = &m->vocab;
     const int C = cfg->context;
 
     int max_new = gp->max_new_tokens;
     if (max_new < 1) max_new = 1;
     if (max_new > C - 1) max_new = C - 1;
     const char *system = gp->system ? gp->system : "";
-    int budget = aster_prompt_budget(cfg, max_new, (int)strlen(system));
+    int budget = aster_prompt_budget_for(m, max_new, system);
 
-    /* Encode the prompt and drop the OLDEST bytes when it is too long, so the
-     * most recent part of the question survives. */
+    /* Encode the prompt and drop the OLDEST tokens when it is too long, so
+     * the most recent part of the question survives. Truncating in token
+     * space rather than byte space is what makes the cut land on a whole
+     * token; doing it in bytes could split a merged token in half. */
     TokenList pl;
     token_list_init(&pl);
-    if (prompt && *prompt) tok_encode(prompt, strlen(prompt), &pl);
+    if (prompt && *prompt) {
+        if (tok_encode(v, prompt, strlen(prompt), &pl) == -2)
+            aster_fail("the prompt contains a NUL byte, which cannot be encoded");
+    }
     if ((int)pl.count > budget) {
         pl.count -= (size_t)((int)pl.count - budget);
         if (truncated) *truncated = 1;
@@ -907,7 +1060,7 @@ size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
     if (*system) {
         TokenList sl;
         token_list_init(&sl);
-        tok_encode(system, strlen(system), &sl);
+        tok_encode(v, system, strlen(system), &sl);
         for (size_t i = 0; i < sl.count && n < C; ++i) seq[n++] = sl.ids[i];
         token_list_free(&sl);
     }
@@ -930,9 +1083,14 @@ size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
      * already large enough for the full context, so the fix is to ask for it
      * here and lower a->T to the live sequence length on each step. */
     AsterActs *a = aster_acts_new(1, C, cfg);
-    char *raw = (char *)aster_xmalloc((size_t)C * 4 + 8);
+    /* One token can spell many bytes, so the buffer is sized from the longest
+     * token in this vocabulary rather than from the context length. */
+    const size_t max_tok = (size_t)aster_vocab_max_token_bytes(v);
+    const size_t raw_cap = (size_t)C * max_tok + 8;
+    char *raw = (char *)aster_xmalloc(raw_cap);
     size_t raw_n = 0;
     if (hit_end) *hit_end = 0;
+    if (left_turn) *left_turn = 0;
 
     for (int step = 0; step < max_new; ++step) {
         a->T = n;
@@ -941,19 +1099,43 @@ size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
          * row of logits is row (n - 1), not row (a->T - 1). */
         const float *lg = a->logits + (size_t)(n - 1) * (size_t)cfg->vocab;
         int next = sample_next(lg, cfg->vocab, gp, &rng);
-        if (next == TOK_END || next == TOK_PAD) { if (hit_end) *hit_end = 1; break; }
-        /* A structural marker means the model tried to leave the assistant
-         * turn. Stop rather than loop: re-running the forward pass on an
-         * unchanged sequence would just resample the same marker and burn the
-         * step budget with nothing to show for it. */
-        if (next > ASTER_BYTE_MAX) { if (truncated) *truncated = 1; break; }
+        if (next < 0 || next >= cfg->vocab)
+            aster_fail("internal: sampled token id %d is outside the vocabulary", next);
+
+        if (next == TOK_END) { if (hit_end) *hit_end = 1; break; }   /* trained stop */
+        if (next == TOK_PAD) break;                                 /* never generated */
+        /* SYSTEM, USER or ASSISTANT means the model tried to start a new turn
+         * rather than finish its reply. This is a model failure and is
+         * reported separately from running out of context: telling a user
+         * their context filled up when the model actually misbehaved would
+         * point them at the wrong thing. Stopping here is also necessary --
+         * re-running the forward pass on an unchanged sequence would just
+         * resample the same marker and burn the step budget.
+         *
+         * The test is a RANGE, not a ceiling. `next <= TOK_ASSISTANT` reads
+         * naturally and is wrong: byte ids are 0..255, so every one of them
+         * satisfies it, and generation stops after zero output tokens. Byte
+         * ids and learned merges are both ordinary content; only 256..258 are
+         * turn markers, and 259/260 were already handled above. */
+        if (next >= TOK_SYSTEM && next <= TOK_ASSISTANT) {
+            if (left_turn) *left_turn = 1;
+            break;
+        }
+
         if (n >= C) { if (truncated) *truncated = 1; break; }
         seq[n++] = (uint16_t)next;
-        raw[raw_n++] = (char)(unsigned char)next;
+
+        const char *s = NULL;
+        size_t blen = 0;
+        if (tok_spelling(v, (uint16_t)next, &s, &blen) != 0) { if (truncated) *truncated = 1; break; }
+        if (raw_n + blen > raw_cap) { if (truncated) *truncated = 1; break; }
+        memcpy(raw + raw_n, s, blen);
+        raw_n += blen;
     }
 
-    /* The model emits raw bytes, so validate UTF-8 before anything else
-     * touches the text. */
+    /* A token boundary is not a character boundary: the model can stop in the
+     * middle of a multi-byte character, so validate UTF-8 before anything
+     * else touches the text. */
     size_t written = utf8_sanitize(raw, raw_n, out, cap);
     free(raw);
     free(seq);

@@ -183,14 +183,15 @@ static void route_status(AsterServer *s, socket_t c) {
         "\"model\":\"%s\",\"train_step\":%u,\"seed\":%u,"
         "\"architecture\":{\"n_layer\":%d,\"n_head\":%d,\"d_model\":%d,"
         "\"d_ff\":%d,\"context_tokens\":%d,\"vocab\":%d},"
-        "\"parameters\":%d,\"tokenizer\":\"byte-v1\","
+        "\"parameters\":%d,\"tokenizer\":\"bpe-2\","
         "\"max_new_tokens\":%d,\"temperature\":%.3f,\"top_k\":%d,"
-        "\"prompt_budget_bytes\":%d,"
+        "\"prompt_budget_tokens\":%d,\"bytes_per_token\":%.3f,"
         "\"network\":\"none\",\"tools\":\"none\",\"persistent_memory\":\"none\"}",
         s->name, s->step, s->seed,
         g->n_layer, g->n_head, g->d_model, g->d_ff, g->context, g->vocab,
         s->model->off.total, s->max_new_tokens, (double)s->temperature, s->top_k,
-        aster_prompt_budget(g, s->max_new_tokens, (int)strlen(s->system ? s->system : "")));
+        aster_prompt_budget_for(s->model, s->max_new_tokens, s->system),
+        s->model->vocab.bytes_per_token);
     respond_json(c, 200, "OK", (n > 0 && (size_t)n < sizeof body) ? body
                                                                     : "{\"ready\":false}");
 }
@@ -216,7 +217,7 @@ static void route_chat(AsterServer *s, socket_t c, const char *body, size_t blen
                                      "The message was empty."); return; }
 
     const AsterConfig *g = &s->model->cfg;
-    int budget = aster_prompt_budget(g, s->max_new_tokens, (int)strlen(s->system ? s->system : ""));
+    int budget = aster_prompt_budget_for(s->model, s->max_new_tokens, s->system);
     if (budget < 1) {
         respond_error(c, 500, "Internal Server Error", "no_context_budget",
                       "This model's context is too small to hold a prompt and a reply.");
@@ -229,15 +230,19 @@ static void route_chat(AsterServer *s, socket_t c, const char *body, size_t blen
     }
     int truncated_prompt = 0;
     size_t msglen = strlen(message);
-    if ((int)msglen > budget) {
-        /* The byte tokenizer spends one token per byte, so the budget is also
-         * a byte count. Keep the END of the message, which is the part the
-         * user just added, and start on a UTF-8 lead byte. */
-        size_t keep = (size_t)budget;
-        size_t start = msglen - keep;
-        while (start < msglen && ((unsigned char)message[start] & 0xC0) == 0x80) ++start;
-        memmove(message, message + start, msglen - start + 1);
-        truncated_prompt = 1;
+    /* The message is NOT trimmed here. aster_generate trims in token space,
+     * dropping the oldest whole tokens, and it is the only place that knows
+     * how this vocabulary segments text. The server used to do its own byte
+     * cut with a UTF-8 resync, which meant the CLI and the server could
+     * truncate the same prompt differently -- and a byte cut can land inside
+     * a merged token. Here we only report whether a trim will happen, so the
+     * UI can say so before the user presses send. */
+    {
+        TokenList pl;
+        token_list_init(&pl);
+        if (tok_encode(&s->model->vocab, message, msglen, &pl) == 0 && (int)pl.count > budget)
+            truncated_prompt = 1;
+        token_list_free(&pl);
     }
     if (!message[0]) {
         respond_error(c, 400, "Bad Request", "prompt_too_long_for_context",
@@ -253,9 +258,10 @@ static void route_chat(AsterServer *s, socket_t c, const char *body, size_t blen
     gp.seed = s->seed;
     gp.system = s->system;
 
-    char *reply = (char *)aster_xmalloc(MAX_BODY_BYTES);
-    int hit_end = 0, truncated_ctx = 0;
-    size_t rn = aster_generate(s->model, message, &gp, reply, MAX_BODY_BYTES, &hit_end, &truncated_ctx);
+    char *reply = (char *)aster_xmalloc(aster_generate_out_cap(s->model));
+    int hit_end = 0, left_turn = 0, truncated_ctx = 0;
+    size_t rn = aster_generate(s->model, message, &gp, reply,
+                               aster_generate_out_cap(s->model), &hit_end, &left_turn, &truncated_ctx);
 
     if (rn == 0 && !hit_end) {
         free(reply);
@@ -278,6 +284,9 @@ static void route_chat(AsterServer *s, socket_t c, const char *body, size_t blen
     if (truncated_prompt)
         snprintf(note, sizeof note, "Only the end of your message fit in this model's "
                  "%d-token context, so older text was dropped.", g->context);
+    else if (left_turn)
+        snprintf(note, sizeof note, "The model started a new turn instead of finishing its "
+                 "reply, so this was cut off here.");
     else if (truncated_ctx)
         snprintf(note, sizeof note, "Generation stopped because the %d-token context filled up.", g->context);
     char esc_note[1024];

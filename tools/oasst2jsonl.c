@@ -334,12 +334,21 @@ static void usage(void) {
         "  oasst2jsonl --in FILE --probe\n"
         "\n"
         "Options:\n"
-        "  --in FILE        the oasst1 export to read (JSON Lines)\n"
-        "  --out FILE       where to write Aster-format JSONL\n"
-        "  --lang CODE      keep only this language (e.g. en). Default: keep all\n"
-        "  --min-chars N    drop turns shorter than N bytes. Default: 8\n"
-        "  --max-turns N    keep at most N turns per conversation. Default: 6\n"
-        "  --probe          print the record layout and exit; writes nothing\n"
+        "  --in FILE             the oasst1 export to read (JSON Lines)\n"
+        "  --out FILE            where to write Aster-format JSONL\n"
+        "  --valid-out FILE      also write a held-out split here\n"
+        "  --valid-every N       every Nth conversation goes to --valid-out.\n"
+        "                        Default: 20 (off when --valid-out is absent)\n"
+        "  --max-conversations N stop after N conversations in total. Default: 0 (all)\n"
+        "  --lang CODE           keep only this language (e.g. en). Default: keep all\n"
+        "  --min-chars N         drop turns shorter than N bytes. Default: 8\n"
+        "  --max-turns N         keep at most N turns per conversation. Default: 6\n"
+        "  --probe               print the record layout and exit; writes nothing\n"
+        "\n"
+        "The split is by construction: a whole conversation goes to one side or\n"
+        "the other, decided as it is emitted. Shuffling records after flattening\n"
+        "the tree would put a prompt and its own reply on opposite sides, and the\n"
+        "held-out loss would then measure memorisation.\n"
         "\n"
         "This tool reads a local file. It does not download anything.\n");
 }
@@ -355,13 +364,17 @@ static int get_any(const char *line, size_t len, const char *const *keys,
 }
 
 int main(int argc, char **argv) {
-    const char *in = NULL, *out = NULL, *lang = NULL;
+    const char *in = NULL, *out = NULL, *lang = NULL, *valid_out = NULL;
     int probe = 0;
     size_t min_chars = 8, max_turns = 6;
+    size_t valid_every = 20, max_convs = 0;
 
     for (int i = 1; i < argc; ++i) {
         if (!strcmp(argv[i], "--in") && i + 1 < argc)            in = argv[++i];
         else if (!strcmp(argv[i], "--out") && i + 1 < argc)      out = argv[++i];
+        else if (!strcmp(argv[i], "--valid-out") && i + 1 < argc) valid_out = argv[++i];
+        else if (!strcmp(argv[i], "--valid-every") && i + 1 < argc) valid_every = (size_t)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--max-conversations") && i + 1 < argc) max_convs = (size_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--lang") && i + 1 < argc)     lang = argv[++i];
         else if (!strcmp(argv[i], "--min-chars") && i + 1 < argc) min_chars = (size_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--max-turns") && i + 1 < argc) max_turns = (size_t)atoi(argv[++i]);
@@ -372,6 +385,11 @@ int main(int argc, char **argv) {
     if (!in) { fprintf(stderr, "--in is required\n\n"); usage(); return 2; }
     if (!probe && !out) { fprintf(stderr, "--out is required (or use --probe)\n\n"); usage(); return 2; }
     if (max_turns == 0) max_turns = 1;
+    if (valid_every == 0) {
+        fprintf(stderr, "--valid-every must be at least 1\n\n");
+        return 2;
+    }
+    if (!valid_out) valid_every = 0;   /* no split was asked for */
 
     int ok = 0;
     size_t flen = 0;
@@ -508,9 +526,11 @@ int main(int argc, char **argv) {
     qsort(order, n, sizeof(size_t), cmp_by_parent);
 
     Buf buf = { NULL, 0, 0 };
+    Buf vbuf = { NULL, 0, 0 };
     buf_add(&buf, "", 0);
+    if (valid_out) buf_add(&vbuf, "", 0);
 
-    size_t roots = 0, written = 0, turns_written = 0;
+    size_t roots = 0, written = 0, valid_written = 0, turns_written = 0;
     size_t branches_dropped = 0, chain_too_long = 0;
     size_t bad_alternation = 0, unterminated = 0, no_root = 0;
 
@@ -520,6 +540,10 @@ int main(int argc, char **argv) {
         if (msgs.v[i].parent != NULL) continue;   /* not a root */
         if (!msgs.v[i].is_user) continue;          /* a root must open a thread */
         roots++;
+
+        /* --max-conversations counts conversations EMITTED, so the cap means
+         * the same thing whether or not a validation split was requested. */
+        if (max_convs > 0 && written + valid_written >= max_convs) break;
 
         size_t len = 0, cur = i;
         int truncated = 0;
@@ -554,13 +578,22 @@ int main(int argc, char **argv) {
         if (msgs.v[chain[len - 1]].is_user) { unterminated++; continue; }
 
         /* Emit. A new system turn starts a new training conversation, so the
-         * multi-turn chain below is one conversation with several pairs. */
-        buf_add(&buf, "{\"role\":\"system\",\"content\":\"\"}\n", 31);
+         * multi-turn chain below is one conversation with several pairs.
+         *
+         * The whole conversation goes to ONE side, chosen here, before a single
+         * turn is written. That is the point of splitting by construction: a
+         * prompt and its own reply can never end up on opposite sides of the
+         * split, so the held-out loss measures generalisation rather than
+         * memorisation. */
+        int to_valid = (valid_every > 0) && ((written + valid_written) % valid_every == valid_every - 1);
+        Buf *dst = to_valid ? &vbuf : &buf;
+
+        buf_add(dst, "{\"role\":\"system\",\"content\":\"\"}\n", 31);
         for (size_t k = 0; k < len; ++k) {
             const char *role = msgs.v[chain[k]].is_user ? "user" : "assistant";
             char *head = (char *)aster_xmalloc(64);
             int hn = snprintf(head, 64, "{\"role\":\"%s\",\"content\":\"", role);
-            buf_add(&buf, head, (size_t)hn);
+            buf_add(dst, head, (size_t)hn);
             free(head);
 
             const char *text = msgs.v[chain[k]].text;
@@ -571,12 +604,13 @@ int main(int argc, char **argv) {
                 bad_text++;
                 continue;
             }
-            buf_add(&buf, esc, strlen(esc));
-            buf_add(&buf, "\"}\n", 3);
+            buf_add(dst, esc, strlen(esc));
+            buf_add(dst, "\"}\n", 3);
             free(esc);
             turns_written++;
         }
-        written++;
+        if (to_valid) valid_written++;
+        else written++;
     }
 
     free(chain);
@@ -589,7 +623,12 @@ int main(int argc, char **argv) {
     free(msgs.v);
 
     aster_info("  roots found %zu, conversations written %zu", roots, written);
-    aster_info("  turns written %zu, total %zu bytes", turns_written, buf.n);
+    if (valid_out)
+        aster_info("  held-out split: %zu conversations (every %zu%s), %zu bytes",
+                   valid_written, valid_every, valid_every == 1 ? "st" : "th", vbuf.n);
+    if (max_convs > 0 && written + valid_written >= max_convs)
+        aster_info("  stopped at --max-conversations %zu", max_convs);
+    aster_info("  turns written %zu, training total %zu bytes", turns_written, buf.n);
     if (branches_dropped)
         aster_warn("%zu alternative replies were dropped: oasst1 is a tree and Aster's "
                    "format is linear, so one reply per prompt is kept", branches_dropped);
@@ -600,21 +639,55 @@ int main(int argc, char **argv) {
 
     if (written == 0) {
         free(buf.p);
+        free(vbuf.p);
         aster_fail("no conversation survived the filters, so nothing was written");
     }
+    if (valid_out && valid_written == 0) {
+        free(buf.p);
+        free(vbuf.p);
+        aster_fail("--valid-out was given but no conversation landed in the held-out split. "
+                   "With %zu conversation(s) and --valid-every %zu, the split is empty; "
+                   "lower --valid-every or raise --max-conversations.",
+                   written, valid_every);
+    }
 
+    /* The SHA-256 of each output goes in the log, so a run is reproducible from
+     * the log alone and a file that later changes is detectable. */
+    char hex[65];
+    aster_sha256_hex(buf.p, buf.n, hex);
     aster_mkdir_for_file(out);
     aster_write_file_atomic(out, buf.p, buf.n);
-    free(buf.p);
     aster_info("wrote %s", out);
+    aster_info("  %zu conversation(s), %zu bytes, sha256 %s", written, buf.n, hex);
+    free(buf.p);
+
+    if (valid_out) {
+        aster_sha256_hex(vbuf.p, vbuf.n, hex);
+        aster_mkdir_for_file(valid_out);
+        aster_write_file_atomic(valid_out, vbuf.p, vbuf.n);
+        aster_info("wrote %s", valid_out);
+        aster_info("  %zu conversation(s), %zu bytes, sha256 %s", valid_written, vbuf.n, hex);
+    }
+    free(vbuf.p);
 
     aster_info("");
     aster_info("Before training on this:");
     aster_info("  1. READ IT. It is other people's writing. Look for names, contact");
     aster_info("     details, and anything personal, and remove what you should not");
     aster_info("     keep. Do not assume the dataset was scrubbed for you.");
-    aster_info("  2. Record the licence and the SHA-256 in data/README.md, and add");
-    aster_info("     the file to data/manifest.json.");
-    aster_info("  3. Keep the validation set DISJOINT from this one.");
+    aster_info("  2. Record the licence and the SHA-256 above in data/README.md, and");
+    aster_info("     add the file to data/manifest.json.");
+    if (valid_out) {
+        aster_info("  3. Learn the vocabulary with --vocab from the TRAINING file ONLY:");
+        aster_info("       aster vocab --mode chat --data %s --out models/aster-small.vocab", out);
+        aster_info("     Fitting merges on the held-out file would leak it, and the");
+        aster_info("     held-out loss would stop meaning anything.");
+        aster_info("  4. Evaluate on BOTH files. The oasst1 holdout is in-distribution");
+        aster_info("     and measures fit; data/demo_valid.jsonl is out-of-distribution");
+        aster_info("     and measures whether the model learned English or just oasst1.");
+        aster_info("     If only the first improves, the second did not.");
+    } else {
+        aster_info("  3. Keep the validation set DISJOINT from this one.");
+    }
     return 0;
 }

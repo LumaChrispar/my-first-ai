@@ -37,8 +37,12 @@ void   aster_write_file_atomic(const char *path, const void *data, size_t len);
 void   aster_mkdir_for_file(const char *path);  /* mkdir -p on the dirname   */
 int    aster_file_exists(const char *path);
 
-/* ---- hashing ------------------------------------------------------------ */
+/* ---- hashing ------------------------------------------------------------
+ * CRC-32 catches a damaged file cheaply. SHA-256 is what a checkpoint stores,
+ * because "this file is the one I trained" is a claim worth being able to
+ * check rather than assume. Both are used for real; neither is decoration. */
 uint32_t aster_crc32(const void *data, size_t len);
+void     aster_sha256_raw(const void *data, size_t len, unsigned char out[32]);
 void     aster_sha256_hex(const void *data, size_t len, char out[65]);
 
 /* ---- time and randomness ----------------------------------------------- */

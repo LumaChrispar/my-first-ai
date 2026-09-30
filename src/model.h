@@ -34,8 +34,8 @@
 #include "tokenizer.h"
 
 #define ASTER_ARCH_VERSION 1
-#define ASTER_CHECKPOINT_MAGIC "ASTERMD1"
-#define ASTER_CHECKPOINT_FORMAT 1
+#define ASTER_CHECKPOINT_MAGIC "ASTERMD2"
+#define ASTER_CHECKPOINT_FORMAT 2
 #define ASTER_LN_EPS 1e-5f
 
 /* Named defaults from the build spec. A checkpoint stores and validates its
@@ -62,6 +62,10 @@ typedef struct {
 typedef struct {
     AsterConfig  cfg;
     AsterOffsets off;
+    /* The model owns its vocabulary. A checkpoint carries the merge table, so
+     * a loaded model can encode and decode on its own and there is no way for
+     * the weights and the tokenizer to come from different places. */
+    AsterVocab   vocab;
     float *params;   /* [total] */
     float *grads;    /* [total] or NULL */
     int    head_dim;
@@ -99,13 +103,23 @@ typedef struct {
     float *dlogits;  /* [B][T][V] */
 } AsterActs;
 
-void aster_config_default(AsterConfig *cfg);
+/* Builds the default architecture for a given vocabulary, setting cfg.vocab
+ * from it. The two must agree: aster_model_new checks that they do, because a
+ * config that disagrees with the tokenizer it is paired with would size the
+ * parameter block wrongly and fail much later, somewhere less obvious.
+ * A zero-merge vocabulary is valid here and gives the plain byte tokenizer. */
+void aster_config_default(AsterConfig *cfg, const AsterVocab *v);
+
+/* Points cfg at a different vocabulary, keeping everything else. */
+void aster_config_set_vocab(AsterConfig *cfg, const AsterVocab *v);
+
 /* 0 if usable, otherwise writes a human-readable reason into err. */
 int  aster_config_validate(const AsterConfig *cfg, char *err, size_t errlen);
 int  aster_param_count(const AsterConfig *cfg);
 void aster_offsets_init(AsterOffsets *off, const AsterConfig *cfg);
 
-AsterModel *aster_model_new(const AsterConfig *cfg, uint32_t seed, int want_grads);
+AsterModel *aster_model_new(const AsterConfig *cfg, const AsterVocab *v,
+                            uint32_t seed, int want_grads);
 void         aster_model_free(AsterModel *m);
 AsterActs  *aster_acts_new(int B, int T, const AsterConfig *cfg);
 AsterActs  *aster_acts_resize(AsterActs *a, int B, int T, const AsterConfig *cfg);
@@ -128,7 +142,7 @@ double aster_backward(AsterModel *m, AsterActs *a, const uint16_t *x,
 
 /* ---- checkpoint ---------------------------------------------------------
  * Layout (scalars written explicitly little-endian, floats as raw IEEE-754):
- *   char[8] magic "ASTERMD1"
+ *   char[8] magic "ASTERMD2"
  *   u32 format_version, arch_version, tokenizer_version
  *   u32 n_layer, n_head, d_model, d_ff, context, vocab
  *   u32 param_count
@@ -136,8 +150,26 @@ double aster_backward(AsterModel *m, AsterActs *a, const uint16_t *x,
  *   u32 has_optimizer
  *   u32 max_new_tokens_default
  *   f32 temperature_default
+ *   u32 n_merges
+ *   f64 bytes_per_token        measured when the merges were learned; the UI
+ *                              uses it only to estimate, never to enforce
+ *   u16 merge_a[n_merges], merge_b[n_merges]
  *   f32 params[param_count]
  *   f32 adam_m[...], adam_v[...]   (only when has_optimizer)
+ *   u32 crc32                  <- integrity block, see below
+ *   u8  sha256[32]
+ *
+ * INTEGRITY. The last 36 bytes are the integrity block and cover everything
+ * before them. Keeping it at the very end means verification is one
+ * contiguous pass with no offsets to get wrong, and the rule is a single
+ * sentence: the last 36 bytes are the checksum, the rest is what it covers.
+ * Both are checked on load BEFORE anything is parsed, so a damaged file is
+ * reported as damaged rather than as bad magic.
+ *
+ * The merge table travels with the weights. A checkpoint plus a separately
+ * managed vocabulary file is a checkpoint that can silently disagree with its
+ * own tokenizer, and the failure would look like a badly trained model.
+ *
  * No chat logs, prompts, or dataset contents are ever stored here. */
 /* Loads a checkpoint. On success the AdamW state is returned through out_m
  * and out_v when the file carries it and the caller asked for it; the caller
@@ -167,16 +199,41 @@ typedef struct {
 
 void gen_params_default(GenParams *g);
 
-/* Bytes of user prompt that fit once the markers, the system text, and room
- * to answer are reserved. Pass system_bytes == 0 for no system text. */
-int  aster_prompt_budget(const AsterConfig *cfg, int max_new_tokens, int system_bytes);
+/* TOKENS of user prompt that fit once the markers, the system text, and room
+ * to answer are reserved. Pass system_tokens == 0 for no system text.
+ *
+ * This is denominated in tokens, not bytes, because a token is no longer one
+ * byte. The old byte-denominated version was safe but wildly pessimistic: a
+ * sub-word token always covers at least one byte, so budgeting N bytes could
+ * only ever under-fill the context, never overflow it. */
+int  aster_prompt_budget(const AsterConfig *cfg, int max_new_tokens, int system_tokens);
+
+/* The same budget, computing the system text's token cost itself. */
+int  aster_prompt_budget_for(const AsterModel *m, int max_new_tokens, const char *system);
+
+/* Buffer size aster_generate needs. The sanitised output can be three times
+ * the raw byte count, because one invalid byte becomes a three-byte U+FFFD.
+ * Callers should use this rather than guessing: passing too small a buffer
+ * silently truncates the reply, which looks exactly like a model that
+ * stopped talking. */
+size_t aster_generate_out_cap(const AsterModel *m);
 
 /* Builds [SYSTEM] <system> [USER] <prompt> [END] [ASSISTANT] and samples.
- * When the prompt does not fit, the OLDEST prompt bytes are dropped and
- * *truncated is set so the caller can say so out loud. *hit_end reports that
- * generation stopped on the END marker. Returns the bytes written to `out`,
- * which is always NUL-terminated and valid UTF-8. */
+ * When the prompt does not fit, the OLDEST prompt TOKENS are dropped and
+ * *truncated is set so the caller can say so out loud.
+ *
+ * Three different things can end generation and they mean different things,
+ * so they are reported separately rather than folded into one flag:
+ *   hit_end   the model emitted END. This is the trained, intended stop.
+ *   left_turn the model emitted SYSTEM/USER/ASSISTANT, i.e. tried to start a
+ *             new turn instead of finishing its reply. That is a model
+ *             failure, and saying "your context ran out" would be wrong.
+ *   truncated the context or the output buffer filled up. A capacity
+ *             condition, not a model failure.
+ * Returns the bytes written to `out`, which is always NUL-terminated and
+ * valid UTF-8. */
 size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
-                      char *out, size_t cap, int *hit_end, int *truncated);
+                      char *out, size_t cap, int *hit_end, int *left_turn,
+                      int *truncated);
 
 #endif /* ASTER_MODEL_H */

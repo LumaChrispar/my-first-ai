@@ -11,25 +11,35 @@ Last updated: 2026-09-30
 
 ## Status at a glance
 
+*(updated 2026-09-30, after the sub-word tokenizer session — see the last
+section for that work. The sections above it are the byte-tokenizer build and
+are kept as the historical record.)*
+
 | Area | State |
 |---|---|
-| Build (`-Wall -Wextra`, MinGW-w64 GCC 15.2) | clean, **zero warnings** |
-| Self-test suite | **26 checks, all passing**, exit 0 |
-| Gradient check (analytic vs finite difference) | passes for 1 and 2 layers |
+| Build (`-Wall -Wextra`, MinGW-w64 GCC 15.2) | clean, **zero warnings** — but `aster.exe` is **locked by a stale process (PID 4964)** and has not been rebuilt; this session built `tmp/aster-chk.exe` with identical flags |
+| Self-test suite | **52 checks, all passing**, exit 0 |
+| Gradient check (analytic vs finite difference) | passes for 1 and 2 layers (worst rel. error 0.0066 / 0.0075) |
+| Tokenizer | sub-word BPE with byte fallback; `encode(decode(encode(s))) == s` verified over an adversarial corpus |
 | Tokenizer / UTF-8 safety | verified |
-| Checkpoint save/load round trip | verified bit-exact |
-| Training reduces held-out loss | **verified: 5.5823 → 2.0938** |
-| Generation | **works** — decodes every step, coherent at the start |
+| Checkpoint save/load round trip | verified bit-exact, `ASTERMD2` with CRC-32 + SHA-256 |
+| Checkpoint corruption | **verified** — one flipped byte is refused, exit 1, no number produced |
+| Training reduces held-out loss | **verified: 3.4042 → 2.3498 bits/byte**, best step 450 of 3000 |
+| vs. the byte-tokenizer build | **3.02 → 2.35 bits/byte on the same held-out set** (22 % better); per-token loss not comparable |
+| Generation | **works** — whole words, grammatical, and still says little; a real long-prompt output loops |
 | Server (loopback, bounded) | **verified end to end** |
-| Browser UI | rewritten, text-only rendering, verified over HTTP |
+| Browser UI | text-only rendering, verified at the source level; **no browser was launched this session** |
 | Build scripts | `build.bat` and `build.sh`; all four exit paths of each checked |
-| README / MODEL_CARD / data provenance | written |
-| Data converter (`tools/oasst2jsonl`) | written, tested, output accepted by the trainer |
+| README / MODEL_CARD / data provenance | written and updated with both loss figures |
+| Data converter (`tools/oasst2jsonl`) | written, tested, splits by construction, SHA-256 per file |
+| oasst1 corpus (~15 000 conversations) | **not downloaded** — blocked on the user; converter and instructions ready |
 
 The honest headline: **the pipeline is complete and verified end to end, and
-the model is still not very good.** It trains, holds out, reloads, and generates,
-but at 124k parameters on 332 conversations it drops characters and says little.
-That is the expected result, and it is documented rather than hidden.
+the model is still not very good.** The sub-word tokenizer made the *English*
+much better — it now emits whole words instead of dropping characters — and did
+not make the model any more knowledgeable. It answers every question with the
+same sentence about itself, and given a long prompt it loops. That is the
+expected result, and it is documented rather than hidden.
 
 ---
 
@@ -512,3 +522,282 @@ unlocked, so nothing below is carried over from an earlier run:
   depends on it being down, but it does hold `aster.exe` open, so a rebuild will
   need it stopped first.
 
+
+---
+
+## Session: sub-word tokenizer (BPE with byte fallback)
+
+### What was built
+
+A real sub-word BPE tokenizer, replacing one-byte-per-token. Decisions taken:
+**1024 merges** (a ceiling, not a target), **context stays at 128** so the
+tokenizer is the only variable, and the checkpoint format was bumped to 2 so a
+checkpoint carries its own merge table.
+
+`--merges` is a ceiling: a small corpus runs out of frequent pairs first. On the
+bundled 24.9 KB demo corpus it learned **885 merges → 1146 tokens → 3.68 bytes
+per token**. The vocabulary learner is handed text through a callback and never
+sees a file path, so it *cannot* be pointed at the validation file even by
+accident.
+
+| File | Change |
+|---|---|
+| `src/tokenizer.h/.c` | `AsterVocab` (merges, derived `tok_len`/`tok_bytes`/`rank`), real BPE encode/decode, vocab file IO (`ASTERVB1`) |
+| `src/model.c/.h` | vocab on the model; checkpoint `ASTERMD2` with merge table + integrity block; detokenizing generation; token-denominated prompt budget; vocab range check |
+| `src/train.c/.h` | token-based window/mask construction; `"bpe-2"`; nats/byte + bits/byte reporting |
+| `src/main.c` | `vocab` verb, flags, self-tests |
+| `src/server.c` | `prompt_budget_tokens`; byte `memmove` + UTF-8 resync deleted; `"bpe-2"` |
+| `src/util.h/.c` | `aster_sha256_raw`; `aster_sha256_hex` became a wrapper over it |
+| `index.html` | token-denominated counter, labelled as an estimate |
+| `tools/oasst2jsonl.c` | `--valid-out`, `--valid-every`, `--max-conversations`, per-file SHA-256 |
+| `README.md`, `MODEL_CARD.md`, `data/README.md` | both loss figures, format 2, the false CRC claim corrected |
+
+### Four real bugs, all found by measurement
+
+None of these were found by reading the code. Each was caught by a number that
+was obviously wrong or by a property test, and three of the four would have
+shipped a plausible-looking, plausible-sounding wrong result.
+
+**1. Generation returned empty text, always.** `src/model.c:1098`
+
+```c
+if (next <= TOK_ASSISTANT) { ... break; }   /* 258 */
+```
+
+The comment said "byte ids are content, structural ids are turn markers", and
+the code said every id at or below 258 ends the turn. Byte ids are 0..255, so
+**every byte satisfied it** and the first sampled token ended generation before
+anything was produced. The self-test had *the same wrong rule* in its reference
+decode, so it passed. The test had to be rewritten to state the intended
+behaviour before it could catch the bug:
+
+```c
+if (next == TOK_END) { if (hit_end) *hit_end = 1; break; }   /* trained stop */
+if (next == TOK_PAD) break;                                  /* never generated */
+if (next >= TOK_SYSTEM && next <= TOK_ASSISTANT) { ... }     /* a RANGE, not a ceiling */
+```
+
+**2. bits/byte double-counted byte length.** `src/train.c:622`
+
+The numerator was a byte-weighted average of per-token cross-entropies, so long
+tokens were charged twice. It reported **5.26 nats/byte where the correct
+figure is 1.63** — and the error *grew with the compression ratio*, so it got
+worse exactly as the tokenizer got better. Fixed to `nats / weight_byte`.
+
+**3. nats → bits was an exponentiation instead of a division.** `src/train.c:623`
+
+```c
+out->bits_per_byte = exp(out->nats_per_byte / log(2.0));   /* wrong */
+```
+
+Nats and bits are one measurement in two units, related by dividing by ln 2.
+`exp()` is monotonically increasing, so **checkpoint selection was unaffected** —
+`exp(a) < exp(b)` exactly when `a < b` — but every printed number was wrong, and
+badly wrong: 1.63 nats/byte is 2.35 bits/byte, and the code reported 10.48.
+
+Nothing caught it: the self-test checked `nats_per_byte`, and the two were
+believed to be the same quantity. The fix was to print the conversion, and the
+fix for the *class* of bug was a new check that asserts the identity directly:
+
+```
+  1.4351 nats/byte is 2.0704 bits/byte (exp would say 7.9)
+  nats -> bits divides by ln 2 rather than exponentiating    pass
+```
+
+This is what produced the `untrained check` line in every training run: a random
+model is uniform, so its bits/byte is not free — it must equal
+`log2(vocab) / bytes-per-token`, which is exactly 8.00 for a byte vocabulary.
+
+**4. `double` fields were saved by numeric cast, not by bit pattern.** `src/model.c`
+
+```c
+put_u64(buf + off, (uint64_t)m->vocab.bytes_per_token);   /* 3.6839 -> 3 */
+```
+
+`(uint64_t)3.6839` is `3`, and reading it back gave exactly `3.0`, so a
+checkpoint silently stored the wrong tokenizer compression ratio. The mirror
+bug on load was worse: `(double)get_u64(...)` on the stored bit pattern
+`0x400FB6D1B60C6D75` is `4.6e18`. Both now use `memcpy` through a `uint64_t`.
+
+### Test bugs fixed along the way
+
+Worth recording because three of them were tests that could not fail:
+
+- `encode(decode(encode(s))) == s` failed on three inputs. Probing showed all
+  three contained a **NUL byte**, which `tok_encode` correctly rejects with -2.
+  The test was wrong, not the encoder — but it is now an explicit check that NUL
+  is *reported*, never skipped.
+- "fully masked batch produces bitwise-zero gradients" failed because
+  `aster_backward` accumulates and early-returns on `wsum <= 0` before touching
+  `m->grads`. The test now memsets first and says why.
+- A `v1` checkpoint fixture was built from a guessed magic string and was being
+  rejected as truncated before reaching the `tokver == 1` check. Replaced with a
+  real fixture (patch one byte of the valid selftest checkpoint, recompute
+  CRC + SHA) plus two more assertions.
+
+### Commands actually run, and actual results
+
+Self-test — **52 checks, all passing, exit 0**:
+
+```powershell
+.\tmp\aster-chk.exe selftest
+```
+
+| Check | Result |
+|---|---|
+| `encode(decode(encode(s))) == s` adversarial corpus | pass |
+| NUL byte reported as an error, not skipped | pass |
+| unseen text falls back to bytes and still round-trips | pass |
+| encode is deterministic; two vocab learns are identical | pass |
+| single flipped checkpoint byte caught by the integrity block | pass |
+| byte-tokenizer checkpoint refused with a "retrain" message | pass |
+| fully masked batch → bitwise-zero gradients | pass |
+| loss mask trains the first answer token, under merges too | pass |
+| bits/byte is total nats over total bytes | pass |
+| nats → bits divides by ln 2 rather than exponentiating | pass |
+| analytic gradients vs finite difference, 1 layer | worst rel. error **0.0066** |
+| analytic gradients vs finite difference, 2 layers | worst rel. error **0.0075** |
+
+Training — same data, same seed 1234, one variable changed:
+
+```powershell
+.\tmp\aster-chk.exe train --mode chat --steps 3000 --batch 8 `
+    --data data/demo_chat.jsonl --validation data/demo_valid.jsonl `
+    --vocab tmp/demo.vocab --out tmp/bpe-small.bin --seed 1234
+```
+
+```
+  vocabulary: demo.vocab (885 merges, 1146 tokens, 3.68 bytes/token)
+  parameters:  180992 (0.181 million), token embedding tied to the output head
+  train split: 332 window(s), 8424 tokens, 45865 source bytes, 1 source(s)
+  valid split: 68 window(s), 2100 tokens, 9737 source bytes, 1 source(s)
+  step      0  valid 7.0541 nats/token  3.4042 bits/byte  (token ppl  1157.57)
+    untrained check: 7.0541 nats/token x 2.99 bytes/token = 2.3596 nats/byte / ln2 =
+    3.4042 bits/byte; log2(vocab=1146) / 2.99 = 3.3994  [consistent]
+  ...
+  finished 3000 step(s) in 532.6s
+  held-out loss was still rising at step 3000; reverting to the best
+      held-out parameters from step 450
+  held-out 7.0541 -> 4.8693 nats/token   3.4042 -> 2.3498 bits/byte: improved
+    check: 4.8693 nats/token x 2.99 bytes/token = 1.6288 nats/byte / ln2 = 2.3498
+           bits/byte (over 1239 scored tokens, 3704 bytes)
+```
+
+Independent verification of the byte accounting, from a separate program that
+builds the same held-out dataset and counts target byte lengths itself:
+
+```
+stream_len=2100 tokens=2100 n_win=68 block=64
+masked targets=1239  bytes=3704  mean=2.9895  zero_len=68
+```
+
+That matches the training log's `1239 scored tokens, 3704 bytes` exactly, and
+the 68 zero-length targets are the 68 `END` markers, one per conversation. The
+figure is right.
+
+**Before / after, on the same held-out set, comparing bits/byte** — the only
+metric that survives a tokenizer change:
+
+| | bytes/token | vocab | parameters | held-out bits/byte |
+|---|---|---|---|---|
+| `byte-v1` | 1.00 | 261 | 124 352 | 3.02 |
+| `bpe-2` | 2.99 | 1146 | 180 992 | **2.35** |
+
+**22 % fewer bits per byte.** The per-token figure rose 2.09 → 4.87 nats/token,
+which is neither a regression nor an improvement — it is a different question,
+and quoting it as a comparison would be the mistake this whole two-number
+reporting scheme exists to prevent.
+
+Checkpoint selection is on bits/byte. The run reverts to step 450 because
+training loss reached 0.0028 nats/token by step 3000 while held-out loss was
+still climbing: 332 examples against 181k parameters is memorisation, and the
+reversion is what makes the reported number mean anything.
+
+Generation, real output, unedited:
+
+| Prompt | `bpe-2` | `byte-v1` (previous build) |
+|---|---|---|
+| `Who are you?` | `I am a small model that runs on your own computer.` | `I ave all ase seal a a a sonde anyor an a pllo.` |
+| `Are you a doctor?` | `No. I am a small model that runs on your own computer.` | `No. I am a a smandl and I ote a no a prre.` |
+| `Can you remember me?` | `No. I am not a small model that runs on your own computer.` | `No. I am a sthe a a smor sthin pronact.` |
+| `What is the capital of France?` | `I cannot. I am not qualified to your own computer.` | — |
+
+**The tokenizer fixed the English, not the model.** It emits whole words now.
+It still does not know that Paris is the capital of France, and it answers every
+question with the same sentence about itself. Given a long prompt it degenerates
+into `the the model model model model to a small model the the the the the` —
+a real output, recorded here rather than omitted.
+
+Corruption check — the thing `README.md` claimed before this session and which
+had **zero call sites**:
+
+```powershell
+Copy-Item tmp\bpe-small.bin tmp\corrupt.bin
+# overwrite one byte at offset 12000
+.\tmp\aster-chk.exe eval --model tmp\corrupt.bin --mode chat --data data\demo_valid.jsonl
+```
+
+```
+error: this checkpoint is damaged: its CRC-32 and SHA-256 do not match its
+contents, so it was not written completely or has been modified. It cannot be
+loaded, and nothing should be concluded from it.                     exit 1
+```
+
+Refused with a reason, exit 1, and **no loss figure produced** — the integrity
+block is verified before anything is parsed, so a corrupt file is reported as
+corrupt rather than as bad magic bytes.
+
+Server:
+
+| Check | Result |
+|---|---|
+| `GET /api/status` | `ready:true`, `"tokenizer":"bpe-2"`, `prompt_budget_tokens: 44`, `bytes_per_token: 3.684`, `network:"none"`, `tools:"none"` |
+| `POST /api/chat "Who are you?"` | same reply as the CLI, so server and docs cannot drift apart |
+| over-long message | 200 with a note naming the 128-token context and saying older text was dropped |
+| `<script>alert(1)</script>` as the message | 200, treated as inert text, not reflected |
+| server log after all of that | 4 lines, **no prompt text and no dataset content** |
+| `GET /` | 200, served |
+
+The prompt budget went from **44 bytes** (about seven words) to **44 tokens**
+(about 165 bytes). The server's byte-`memmove` plus UTF-8-resync truncation was
+deleted rather than ported, so the server and the CLI now truncate *identically*
+— they did not before.
+
+`index.html` was checked at the source level, **not in a browser**: every write
+into the transcript goes through `textContent` (one helper, `index.html:434`),
+and the file contains no `innerHTML`, no `insertAdjacentHTML`, and no
+`createContextualFragment`. No browser was launched this session, so no browser
+rendering is claimed.
+
+### Data: converter ready, download not done
+
+`tools/oasst2jsonl.c` now splits **by construction** — a whole conversation goes
+to one side or the other, decided as it is emitted. Shuffling records after
+flattening the oasst1 tree would put a prompt in the training half and its own
+reply in the validation half, and the held-out loss would then be a
+memorisation score wearing a generalisation score's label. Verified on a
+synthetic fixture: 20 train / 5 valid, disjoint, SHA-256 printed for each file,
+`--max-conversations` cap honoured.
+
+**No oasst1 data has been downloaded and no model has been trained on it.** The
+project makes no network access and neither did this session. The converter, the
+split, and the instructions are ready; the download is the user's to do, and the
+`data/README.md` provenance section has placeholders to fill with the real
+licence and SHA-256 when it is.
+
+### Known limitations of this build
+
+- The merge table is fitted to whatever corpus it learned from, so a retrain on
+  different data must re-learn the vocabulary. Cross-corpus loss comparisons
+  change two variables, not one.
+- The merge table is *not* kept only in a sidecar file: the checkpoint carries
+  its own copy, so a model never depends on a separate file staying in sync.
+  `models/aster-small.vocab` is written for reproducibility; the checkpoint is
+  what is loaded.
+- The old `models/aster-small.bin` is a `byte-v1` checkpoint that this build
+  **refuses by design**, with a message saying to retrain. It has not been
+  deleted; doing so needs the user's authorisation.
+- `build.bat` still cannot write `aster.exe`, because the stale `aster.exe`
+  (PID 4964) from an earlier session still holds the file. Everything this
+  session was built and run with is `tmp/aster-chk.exe`, compiled with the same
+  flags and warnings. **The real `aster.exe` has not been rebuilt.**

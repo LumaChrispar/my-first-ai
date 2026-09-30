@@ -109,7 +109,10 @@ tooling you trust; this only reads a file already on disk.
 gcc -std=c11 -O2 -Wall -Wextra -Isrc -o oasst2jsonl.exe `
     tools/oasst2jsonl.c src/util.c src/jsonstr.c src/tokenizer.c
 
-.\oasst2jsonl.exe --in oasst.jsonl --out data/oasst_chat.jsonl --lang en
+.\oasst2jsonl.exe --in oasst.jsonl --lang en `
+    --out data/oasst_train.jsonl `
+    --valid-out data/oasst_valid.jsonl --valid-every 20 `
+    --max-conversations 15000
 ```
 
 If the file is not in the layout the tool understands, run `--probe` to see the
@@ -120,10 +123,28 @@ and writes nothing** rather than producing a wrong training set.
 |---|---|
 | `--in FILE` | the oasst1 export to read (JSON Lines) |
 | `--out FILE` | where to write Aster-format JSONL |
+| `--valid-out FILE` | also write a held-out split here |
+| `--valid-every N` | every Nth conversation goes to `--valid-out`. Default: 20; off when `--valid-out` is absent |
+| `--max-conversations N` | stop after N conversations in total. Default: 0 (all) |
 | `--lang CODE` | keep only this language, e.g. `en`. Default: keep all |
 | `--min-chars N` | drop turns shorter than N bytes. Default: 8 |
 | `--max-turns N` | keep at most N turns per conversation. Default: 6 |
 | `--probe` | print the record layout and exit; writes nothing |
+
+### The split is made by construction
+
+`--valid-every 20` sends every 20th conversation to `--valid-out` **as it is
+emitted**, so a conversation's turns can never land on both sides. This is not
+just tidiness — the alternative is wrong:
+
+> If you flattened the tree first and *then* shuffled records, siblings would
+> land on both sides. A prompt in the training half with its own reply in the
+> validation half is not a held-out example at all, and the loss you report is a
+> memorisation score wearing a generalisation score's label.
+
+The tool prints the conversation count and the SHA-256 of each file it wrote, so
+a run is reproducible from its own log and a file that later changes is
+detectable.
 
 ### What it does to the data, and what that costs you
 
@@ -148,14 +169,41 @@ half the dataset and said nothing would be worse than no converter at all.
    data is present — do not assume the dataset was scrubbed for you.
 2. **Record the licence and the SHA-256** in this file, and add an entry to
    `manifest.json`.
-3. **Keep the validation set disjoint.** If you train on this and validate on
-   `demo_valid.jsonl`, the two sets are unrelated, which is fine. If you
-   validate on a slice of the same oasst1 export, the held-out number will be
-   optimistic and you should say so.
+3. **Learn the vocabulary from the training file only.**
 
-## Why the corpus is small
+   ```powershell
+   .\aster.exe vocab --mode chat --data data/oasst_train.jsonl `
+       --merges 1024 --out models/aster-small.vocab
+   ```
+
+   There is deliberately no `--validation` flag on `vocab`, because a merge
+   table fitted on held-out data leaks it: the tokenizer would have already
+   seen the words whose frequency it is about to be scored on, and the
+   held-out loss would stop meaning what it appears to mean. The learner is
+   handed text through a callback and never sees a file path, so it cannot be
+   pointed at the wrong file even by accident.
+
+   **One confound to be aware of when comparing across corpora:** the merge
+   table is fitted to whichever corpus it learned from, so a model trained on
+   oasst1 with 1024 merges and a model trained on the demo set with 885 merges
+   are not the same tokenizer. If you change the training corpus, re-learn the
+   vocabulary, and treat any cross-corpus loss comparison as two variables
+   changed rather than one.
+
+4. **Evaluate on two sets, not one.**
+
+   | Set | Meaning |
+   |---|---|
+   | `data/oasst_valid.jsonl` | **in-distribution.** Measures fit to the oasst1 corpus. |
+   | `data/demo_valid.jsonl` | **out-of-distribution.** Measures whether the model learned English, or merely learned oasst1. |
+
+   If the first improves and the second does not, the model learned the
+   corpus and not the language, and reporting only the first would be the
+   dishonest choice.
+
+## Why the demo corpus is small
 
 332 conversations is tiny — far too small for a model this size to learn much,
-and the training loss will still drop to near zero because 124 352 parameters can
+and the training loss will still drop to near zero because a model this size can
 memorise this much text. That is expected here and is not presented as
 success. See `../MODEL_CARD.md` for what the model can and cannot do.

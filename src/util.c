@@ -195,7 +195,7 @@ static void sha256_block(sha256_t *s, const unsigned char *p) {
     s->h[4]+=e; s->h[5]+=f; s->h[6]+=g; s->h[7]+=h;
 }
 
-void aster_sha256_hex(const void *data, size_t len, char out[65]) {
+void aster_sha256_raw(const void *data, size_t len, unsigned char out[32]) {
     sha256_t s;
     s.h[0]=0x6a09e667u; s.h[1]=0xbb67ae85u; s.h[2]=0x3c6ef372u; s.h[3]=0xa54ff53au;
     s.h[4]=0x510e527fu; s.h[5]=0x9b05688cu; s.h[6]=0x1f83d9abu; s.h[7]=0x5be0cd19u;
@@ -219,7 +219,18 @@ void aster_sha256_hex(const void *data, size_t len, char out[65]) {
     for (int b = 0; b < 8; ++b) s.buf[56 + b] = (unsigned char)(s.bits >> (56 - 8 * b));
     sha256_block(&s, s.buf);
 
-    for (int b = 0; b < 8; ++b) sprintf(out + b * 8, "%08x", s.h[b]);
+    for (int b = 0; b < 8; ++b) {
+        out[b * 4 + 0] = (unsigned char)(s.h[b] >> 24);
+        out[b * 4 + 1] = (unsigned char)(s.h[b] >> 16);
+        out[b * 4 + 2] = (unsigned char)(s.h[b] >> 8);
+        out[b * 4 + 3] = (unsigned char)(s.h[b]);
+    }
+}
+
+void aster_sha256_hex(const void *data, size_t len, char out[65]) {
+    unsigned char raw[32];
+    aster_sha256_raw(data, len, raw);
+    for (int b = 0; b < 32; ++b) sprintf(out + b * 2, "%02x", raw[b]);
     out[64] = '\0';
 }
 

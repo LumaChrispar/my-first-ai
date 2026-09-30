@@ -396,7 +396,8 @@ var state = {
   controller: null,   /* AbortController for the in-flight request */
   seq: 0,             /* monotonic id so an aborted reply can be discarded */
   pendingIndex: null, /* index of the "Generating..." turn awaiting a reply */
-  budget: null,       /* prompt_budget_bytes reported by the server */
+  budget: null,       /* prompt_budget_tokens reported by the server */
+  bytesPerToken: 1,   /* measured, from the status endpoint; the hint is an estimate */
   maxNew: null,
   history: []         /* { role, text, note, meta, problem } */
 };
@@ -488,7 +489,9 @@ function renderFacts(s) {
   addFact("Sampling temperature", fmtFixed(s.temperature, 3));
   addFact("Top-k", isNumber(s.top_k) ? String(s.top_k) : null);
   addFact("Prompt budget for your message",
-    isNumber(s.prompt_budget_bytes) ? fmtInt(s.prompt_budget_bytes) + " bytes" : null);
+    isNumber(s.prompt_budget_tokens) ? fmtInt(s.prompt_budget_tokens) + " tokens" : null);
+  addFact("Bytes per token (measured)",
+    isNumber(s.bytes_per_token) ? fmtFixed(s.bytes_per_token, 2) : null);
   addFact("Network access", typeof s.network === "string" ? s.network : null);
   addFact("Tools", typeof s.tools === "string" ? s.tools : null);
   addFact("Persistent memory", typeof s.persistent_memory === "string" ? s.persistent_memory : null);
@@ -501,7 +504,9 @@ function applyStatus(s) {
 
   if (s && s.ready === true) {
     state.ready = true;
-    state.budget = isNumber(s.prompt_budget_bytes) ? s.prompt_budget_bytes : null;
+    state.budget = isNumber(s.prompt_budget_tokens) ? s.prompt_budget_tokens : null;
+    state.bytesPerToken = isNumber(s.bytes_per_token) && s.bytes_per_token > 0
+      ? s.bytes_per_token : 1;
     state.maxNew = isNumber(s.max_new_tokens) ? s.max_new_tokens : null;
     setPill("ready", "Model loaded");
     ui.gate.hidden = true;
@@ -681,29 +686,41 @@ function clearTranscript() {
 
 /* --------------------------------------------------------------- controls */
 
-function byteHint() {
+/* Rough token count, for the live hint only.
+ *
+ * This is an ESTIMATE and the UI says so. A real BPE count depends on the
+ * merge table the model was trained with, which lives in the checkpoint and is
+ * not sent to the browser -- so this approximates with the server's measured
+ * bytes-per-token ratio, which is right on average and wrong for any given
+ * message. Enforcement is exact and happens server-side: aster_generate counts
+ * real tokens and drops the oldest ones. A counter that silently truncated a
+ * prompt would be worse than no counter, which is why this one only warns. */
+function estimateTokens(text) {
+  if (!text) return 0;
+  var ratio = state.bytesPerToken > 0 ? state.bytesPerToken : 1;
+  return Math.ceil(utf8Length(text) / ratio);
+}
+
+function promptHint() {
   var text = ui.input.value;
-  if (!text) {
-    return state.budget !== null
-      ? "Enter sends · Shift + Enter adds a line"
-      : "Enter sends · Shift + Enter adds a line";
+  if (!text) return "Enter sends · Shift + Enter adds a line";
+  var chars = utf8Length(text);
+  if (state.budget === null) return fmtInt(text.length) + " characters";
+  var est = estimateTokens(text);
+  if (est > state.budget) {
+    return "about " + fmtInt(est) + " of " + state.budget +
+      " prompt tokens (estimate from " + fmtFixed(state.bytesPerToken, 2) +
+      " bytes/token) — the server will drop the oldest part of your message " +
+      "and answer only from the end.";
   }
-  var bytes = utf8Length(text);
-  if (state.budget !== null && bytes > state.budget) {
-    return bytes + " of " + state.budget +
-      " prompt bytes used — the server will drop the oldest " + (bytes - state.budget) +
-      " bytes and only answer from the end.";
-  }
-  if (state.budget !== null) {
-    return bytes + " of " + state.budget + " prompt bytes used";
-  }
-  return text.length + " characters";
+  return "about " + fmtInt(est) + " of " + state.budget +
+    " prompt tokens (estimate; " + fmtInt(chars) + " characters)";
 }
 
 function updateHint() {
-  ui.hint.textContent = byteHint();
+  ui.hint.textContent = promptHint();
   ui.hint.classList.toggle("warn", state.budget !== null && ui.input.value !== "" &&
-                           utf8Length(ui.input.value) > state.budget);
+                           estimateTokens(ui.input.value) > state.budget);
 }
 
 function refreshControls() {
