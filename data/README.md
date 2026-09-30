@@ -95,6 +95,64 @@ Before you do, check that you are allowed to:
 A one-line record of provenance is the difference between a dataset you can
 publish and one you cannot.
 
+## Using a public dataset: `tools/oasst2jsonl`
+
+`tools/oasst2jsonl.c` converts an **OpenAssistant (oasst1)** export into
+Aster's chat JSONL. It is a data-prep tool and is deliberately **not** part of
+`aster.exe`.
+
+**It does not download anything.** The project makes no network access at any
+point, and neither does this tool. You fetch the dataset yourself with whatever
+tooling you trust; this only reads a file already on disk.
+
+```powershell
+gcc -std=c11 -O2 -Wall -Wextra -Isrc -o oasst2jsonl.exe `
+    tools/oasst2jsonl.c src/util.c src/jsonstr.c src/tokenizer.c
+
+.\oasst2jsonl.exe --in oasst.jsonl --out data/oasst_chat.jsonl --lang en
+```
+
+If the file is not in the layout the tool understands, run `--probe` to see the
+keys it actually has. A real run against an unrecognised file **exits non-zero
+and writes nothing** rather than producing a wrong training set.
+
+| Option | Meaning |
+|---|---|
+| `--in FILE` | the oasst1 export to read (JSON Lines) |
+| `--out FILE` | where to write Aster-format JSONL |
+| `--lang CODE` | keep only this language, e.g. `en`. Default: keep all |
+| `--min-chars N` | drop turns shorter than N bytes. Default: 8 |
+| `--max-turns N` | keep at most N turns per conversation. Default: 6 |
+| `--probe` | print the record layout and exit; writes nothing |
+
+### What it does to the data, and what that costs you
+
+oasst1 is a **tree**, not a list of conversations: every message points at its
+parent, and one user message can have several assistant replies. Aster's format
+is strictly linear. So the tool walks down from each root and, where a node has
+more than one child, **keeps the first and drops the rest**. That is lossy, and
+the run reports exactly how lossy:
+
+```
+warning: 1 alternative replies were dropped: oasst1 is a tree and Aster's
+         format is linear, so one reply per prompt is kept
+```
+
+Read those counts before you trust the file. A converter that quietly threw away
+half the dataset and said nothing would be worse than no converter at all.
+
+### Before you train on the result
+
+1. **Read it.** It is other people's writing. Look for names, contact details,
+   and anything personal. oasst1 was written by volunteers, so assume personal
+   data is present — do not assume the dataset was scrubbed for you.
+2. **Record the licence and the SHA-256** in this file, and add an entry to
+   `manifest.json`.
+3. **Keep the validation set disjoint.** If you train on this and validate on
+   `demo_valid.jsonl`, the two sets are unrelated, which is fine. If you
+   validate on a slice of the same oasst1 export, the held-out number will be
+   optimistic and you should say so.
+
 ## Why the corpus is small
 
 332 conversations is tiny — far too small for a model this size to learn much,

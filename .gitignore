@@ -1,0 +1,18 @@
+# Build output. The binary is fully determined by the sources next to it, so
+# committing it would only add noise to every diff and make "what changed"
+# harder to read. Build it with build.bat (Windows) or build.sh (POSIX).
+aster.exe
+*.o
+
+# Data-prep tools are also built locally, not shipped in the repo.
+oasst2jsonl.exe
+
+# Checkpoints are large and are reproduced by `aster train`. The vocabulary
+# file is a build artifact of `aster vocab` for the same reason.
+models/*.bin
+models/*.vocab
+models/*.meta.json
+
+# Run logs. These are local evidence of a run, not source.
+tmp/
+*.log

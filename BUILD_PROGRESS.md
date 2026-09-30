@@ -24,6 +24,7 @@ Last updated: 2026-09-30
 | Browser UI | rewritten, text-only rendering, verified over HTTP |
 | Build scripts | `build.bat` and `build.sh`; all four exit paths of each checked |
 | README / MODEL_CARD / data provenance | written |
+| Data converter (`tools/oasst2jsonl`) | written, tested, output accepted by the trainer |
 
 The honest headline: **the pipeline is complete and verified end to end, and
 the model is still not very good.** It trains, holds out, reloads, and generates,
@@ -314,15 +315,83 @@ All four paths were then run and their exit codes checked:
 | stale exe present, deleted | rebuilds, **exit 0** |
 | no stale exe | rebuilds, **exit 0** |
 
-The `del`-failure path itself could not be run, because the test servers still
-hold the real `aster.exe` locked — see "Remaining cleanup". It is the same
-top-level `exit /b 1` form as the two failure paths that were run, so the
-control flow is verified; only the trigger was unavailable.
+All four were run. The `del`-failure path could not be triggered — it needs a
+locked `aster.exe`, and by the time the fix was in place nothing was holding the
+file any more. It is the same top-level `exit /b 1` form as the two failure
+paths that were run, so the control flow is verified; only the trigger was
+unavailable.
 
 Note for anyone re-checking this: measuring a `.bat` exit code by appending
 `& echo %ERRORLEVEL%` on the same command line does **not** work — cmd expands
 `%ERRORLEVEL%` when it parses the line, before the script runs. Read the
 process return value instead.
+
+### `tools/oasst2jsonl` — the data converter, and three bugs in it
+
+Added a tool that converts an OpenAssistant (oasst1) export into Aster's chat
+JSONL. It is a data-prep utility, **not** part of `aster.exe`, and it downloads
+nothing — the project still makes no network access at any point.
+
+oasst1 is not a list of conversations. It is a **tree**: every message carries a
+`parent_message_id`, and one user message can have several assistant replies.
+Aster's format is strictly linear, so the tool indexes messages by parent,
+walks down from each root, and where a node has more than one child it keeps the
+first and reports the rest. Every count is printed, because a converter that
+silently discarded half the dataset would be worse than none.
+
+Written against a documented schema, then tested against a hand-built fixture
+covering both published layouts (flat `"text"`, and `"text"` nested inside a
+`"content"` object), a branched thread, a dangling thread, a two-language mix,
+`\u` escapes, a surrogate pair, a lone surrogate, a control character, an
+unknown role, a record with no text, and a line that is not JSON at all. Three
+bugs, each found by running it rather than reading it:
+
+1. **Every key after the first was over-read.** `scan_quoted` returns an offset
+   relative to the string it was given, but the callers passed `s + i` together
+   with the *absolute* `i + end`. For `i = 0` those coincide, so the first key
+   decoded correctly and every later one ran on past its closing quote — each
+   value bleeding into the key after it. The `--probe` output was visibly
+   nonsense (`message_id"`, then fragments of the next record) which is what
+   made it obvious.
+
+2. **`field_get` reported every good field as absent.** It ended with
+   `return decode_string(...)`, but `decode_string` answers **0** for success
+   while `field_get` promises **1** for "found". Every record was rejected as
+   having no role. Fixed with `return rc == 0 ? 1 : rc;` and a comment saying
+   why, because the two conventions disagreeing is the whole bug.
+
+3. **The root turn was never emitted.** The walk pushed only children, so every
+   conversation began at its first *reply* and the user turn was missing
+   entirely. Aster's loader would have rejected every line of the output. The
+   `_id`/`text`-nested records still parsed correctly, which is why the two
+   layouts agreeing did not reveal it.
+
+A fourth was in the surrogate-pair lookahead, where the bound was one byte too
+loose and rejected valid pairs. And one apparent UTF-8 bug was not a bug at
+all: the fixture generator had turned `é` into a bare Latin-1 `0xE9`, so
+the tool was correctly rejecting genuinely invalid bytes. The fixture was
+wrong, not the code.
+
+Verified after the fixes:
+
+| Check | Result |
+|---|---|
+| `--probe` on a good file | lists `message_id, parent_message_id, text, role, lang` |
+| full run on the fixture | 21 lines → 16 messages → 6 conversations, 14 turns |
+| UTF-8 accents round-trip | `é è ü ñ î` preserved |
+| escapes | `\t \" \\ \n` decoded then correctly re-escaped |
+| surrogate pair `😀` | decoded to a 4-byte 😀 |
+| lone surrogate | rejected, not passed through |
+| unknown role / no text / not JSON | each skipped, each counted |
+| branch | first reply kept, the other reported as dropped |
+| `--lang en` | 5 conversations, German thread excluded |
+| `--max-turns 2` | 1 chain truncated and reported |
+| **wrong schema** | **exit 1, no file written** |
+| **output loaded by `aster train`** | **6 sources, 7 windows, exit 0** |
+
+That last row is the one that matters: the converter's output is not merely
+well-formed JSON, it is accepted by the same loader that reads
+`demo_chat.jsonl`.
 
 ---
 
@@ -383,32 +452,63 @@ code of every success and failure path of both build scripts.
 it was checked over HTTP (status, content type, byte count, hash) and by reading
 the source, not by visual inspection. No cross-platform build was attempted;
 only MinGW-w64 GCC on Windows. No load or concurrency testing of the server. The
-`build.bat` delete-failure path could not be triggered, because the locked
-`aster.exe` prevents it — see the note above.
+`build.bat` delete-failure path could not be triggered, because by the time the
+fix was in place nothing was holding `aster.exe` any more — see the note above.
 
-**Left in place deliberately:** the obsolete root `server.c` from the original
-rule-based demo. Deleting it was blocked by a safety prompt, so it is still in the
-repository. It is **not** referenced by `build.bat`, `build.sh`, or any command in
-the README, and `src/server.c` is the file that is actually compiled. It should
-be deleted before this is shared.
+**Deleted by the user:** the obsolete root `server.c` from the original
+rule-based demo. It was never compiled (`src/server.c` is the file that is
+built) and is now gone from the repository.
+
+---
+
+## Final verification, after the cleanup
+
+Re-run end to end once the stale processes were gone and `aster.exe` was
+unlocked, so nothing below is carried over from an earlier run:
+
+```powershell
+.\build.bat
+```
+
+```
+  Removing the existing aster.exe ...
+  Removed.
+  Compiling ...
+  BUILD SUCCEEDED - aster.exe was created.
+  (zero warnings)                                            exit 0
+```
+
+| Check | Result |
+|---|---|
+| `aster selftest` | 26 checks, **exit 0** |
+| gradient check | 0.0066 worst relative error (1 layer), 0.0075 (2 layers) |
+| `aster eval` on `demo_valid.jsonl` | 2.0938 nats/token, perplexity 8.12, step 1075 |
+| `aster generate "Who are you?"` | `I ave all ase seal a a a sonde anyor an a pllo.` |
+| `models/` after selftest | checkpoint and its metadata only — the self-test cleans up after itself |
+| `serve --port 8080` bind | `127.0.0.1:8080` only |
+| `GET /api/status` | `ready:true`, 124 352 parameters, `network:"none"`, `tools:"none"` |
+| `POST /api/chat` | same reply as the CLI, so server and docs cannot drift apart |
+| `GET /` | 200, 36 116 bytes, **byte-identical to `index.html`** |
+| `PUT /api/chat` | 405 `method_not_allowed` |
+| `GET /api/nope` | 404 `not_found` |
+| empty / missing `message`, bad JSON | 400 with a specific reason each |
+| 5 000-byte message | 413 `message_too_long` |
+| over-long prompt | 200 with a `note` saying older text was dropped |
+| `<script>alert(1)</script>` as the message | 200, treated as inert text |
+| server log after all of that | 4 lines, **no prompt text and no dataset content** |
 
 ---
 
 ## Remaining cleanup
 
-- Delete the obsolete root `server.c` (needs explicit authorisation).
-- Three processes are still listening on `127.0.0.1`: ports 8098 and 8099 were
-  test servers started for this project, 8097 was already running beforehand and
-  belongs to something else — leave it alone. The two test servers were not
-  killed, because force-killing those PIDs needed authorisation I did not have.
-  Stop them with `taskkill /PID <pid> /F`, or just reboot.
-- **A running server is holding `aster.exe` open**, so `build.bat` cannot relink
-  it in place until those processes stop. The current `aster.exe` is current
-  (built at 10:06, after the last source change at 09:47) and passes
-  `selftest`, and the identical build was verified to succeed under a different
-  output name — so the source is fine, only the filename is locked.
-- `tmp/` keeps only the two training logs quoted above (`train_full.log`,
-  `train_b128.log`), as the raw evidence behind the numbers in this file. The
-  diagnostic programs, their executables, the temporary corpora, the
-  single-window checkpoints and the throwaway test binaries have been removed.
+- `tmp/` keeps the two training logs quoted above (`train_full.log`,
+  `train_b128.log`), the raw evidence behind the numbers in this file, plus
+  `serve.log` from the final run. The diagnostic programs, their executables,
+  the temporary corpora, the single-window checkpoints and the throwaway test
+  binaries have been removed.
+- **One server is still running on `127.0.0.1:8080`** (PID 13128), started for
+  the final verification above. Stopping it was blocked by a safety prompt, so
+  it is still up: `taskkill /PID 13128 /F`, or just close the terminal. Nothing
+  depends on it being down, but it does hold `aster.exe` open, so a rebuild will
+  need it stopped first.
 

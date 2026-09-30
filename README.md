@@ -218,6 +218,9 @@ src/
   tokenizer.c/.h byte tokenizer, UTF-8 validation and sanitisation
   util.c/.h     logging, checked allocation, atomic write, SHA-256, CRC-32, RNG
   jsonstr.c/.h  minimal JSON string extraction and escaping
+tools/
+  oasst2jsonl.c data prep: OpenAssistant (oasst1) export -> chat JSONL
+                NOT part of aster.exe, and it does not download anything
 data/           training and validation corpora, with provenance
 models/         checkpoints (written by `train`)
 index.html      the browser page
@@ -237,6 +240,26 @@ template in `data/manifest.example.json`.
 If you add your own data, only use material you own or are licensed to use, and
 exclude anything private: no credentials, no personal records, no confidential
 work, and no private conversations.
+
+### Converting a public dataset
+
+`tools/oasst2jsonl.c` turns an **OpenAssistant (oasst1)** export into Aster's
+chat JSONL. It is a separate tool, not part of `aster.exe`, and **it downloads
+nothing** — you fetch the dataset yourself, and this only reads a local file.
+
+```powershell
+gcc -std=c11 -O2 -Wall -Wextra -Isrc -o oasst2jsonl.exe `
+    tools/oasst2jsonl.c src/util.c src/jsonstr.c src/tokenizer.c
+
+.\oasst2jsonl.exe --in oasst.jsonl --out data/oasst_chat.jsonl --lang en
+```
+
+oasst1 is a *tree* and Aster's format is linear, so the converter keeps one
+reply per prompt and reports how many alternatives it discarded. Read the
+counts before training on the result, and read the file: it is other people's
+writing, and personal data should be assumed present. Full details, including
+the `--probe` mode for diagnosing an unexpected file layout, are in
+[`data/README.md`](data/README.md).
 
 ## Privacy
 
