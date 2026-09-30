@@ -1,0 +1,81 @@
+Aster is a small language model written in plain C.
+
+Aster is a teaching project. It is not a product. It is not a service.
+Aster is meant to be read, compiled, and inspected by one person on one
+computer. There is no cloud service behind Aster. There is no account and
+there is no key. There is no network call anywhere in the source.
+
+A token in Aster is one byte. The tokenizer is the identity map on bytes, so
+a token is always exactly one byte of input text. Five extra token ids are
+reserved for control markers. The markers are SYSTEM, USER, ASSISTANT, END,
+and PAD. Those five ids sit above the two hundred and fifty six real bytes,
+which makes the vocabulary two hundred and sixty one tokens wide.
+
+The model is a decoder-only causal transformer. It reads a fixed window of
+at most one hundred and twenty eight token positions. The window is small on
+purpose. A small window keeps the activations small and keeps the arithmetic
+easy enough to check by hand.
+
+Each transformer block has two sublayers. The first sublayer is multi-head
+self attention. The second sublayer is a position-wise feedforward network.
+Both sublayers are preceded by a layer normalisation and both are wrapped in
+a residual connection. The order is pre-norm, which is easier to train at
+small depth than post-norm.
+
+The model has two blocks, a model width of sixty four, four attention heads,
+a feedforward width of two hundred and fifty six, and a context of one
+hundred and twenty eight positions. The total parameter count is one hundred
+and twenty four thousand three hundred and fifty two, which is about zero
+point one two million parameters.
+
+The output head is tied to the token embedding. The same table that turns
+token ids into vectors is also the matrix that turns the final hidden state
+into logits. Tying the two keeps the parameter count down and it removes a
+whole class of bug where the input embedding and the output head drift
+apart.
+
+Training minimises next-token cross entropy. At every position the model sees
+the tokens to the left, never the tokens to the right. The causal mask is
+what makes that possible. The mask is applied before the softmax inside
+attention, so no position can attend to its own future.
+
+The optimiser is AdamW with decoupled weight decay. Weight decay is applied
+only to the square weight matrices and not to biases, layer norm scales, or
+layer norm shifts. Gradients are clipped by global norm before the update.
+The learning rate warms up linearly and then decays along a cosine curve.
+
+A loss in Aster is a number near zero when the model is confident and right.
+A loss in Aster is a number near five and a half when the model is guessing
+at random over the full vocabulary. Training should move the first number
+towards the second one becoming small, and the held-out loss should fall too.
+
+A checkpoint is one binary file. It begins with a magic string and a header
+of little-endian integers describing the architecture, the parameter count,
+the training step, the random seed, and the version of every format. The
+weights follow the header as raw floating point numbers. A checkpoint never
+contains a chat log, a prompt, or a line of the training text.
+
+Generation is autoregressive. The model is given a prompt, it produces one
+token, that token is appended, and the process repeats. Greedy sampling is
+deterministic. The number of tokens produced is always capped. The output is
+always valid text, and any bytes that are not valid text are replaced rather
+than passed through.
+
+Aster has no tools. It cannot run code, read a file, search the web, or send
+anything anywhere. It produces text and nothing else. A model that cannot act
+cannot act badly, and a model of this size could not act usefully anyway.
+
+Aster should be treated as an experiment. Its answers are frequently wrong in
+a fluent and confident way. It should not be used for medical, legal,
+financial, emergency, hiring, or any other high-impact decision. It has not
+been safety certified and it makes no claim to have been.
+
+A chat log lives in the browser. The log is held in the page, not on the
+server, and it is not written into any model file. Nothing in Aster is sent
+off the machine. The server binds to the loopback address, so the only client
+that can reach it is a browser on the same computer.
+
+The tokenizer round-trips. Bytes go in and the same bytes come out. The
+validation set is disjoint from the training set. The checkpoint reload is
+exact. Those three properties are checked by the self test, and the self test
+reports honestly when one of them fails.
