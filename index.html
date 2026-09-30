@@ -395,6 +395,7 @@ var state = {
   busy: false,        /* a chat request is in flight */
   controller: null,   /* AbortController for the in-flight request */
   seq: 0,             /* monotonic id so an aborted reply can be discarded */
+  pendingIndex: null, /* index of the "Generating..." turn awaiting a reply */
   budget: null,       /* prompt_budget_bytes reported by the server */
   maxNew: null,
   history: []         /* { role, text, note, meta, problem } */
@@ -553,10 +554,13 @@ function showGateError(message) {
 /* ------------------------------------------------------------- transcript */
 
 function renderTurn(t) {
-  var turn = el("div", "turn " + (t.problem ? "problem" : t.role));
+  var kind = t.problem ? "problem" : (t.role === "notice" ? "notice" : t.role);
+  var turn = el("div", "turn " + kind);
 
   var who = el("div", "who");
-  if (t.role === "user") {
+  if (kind === "notice") {
+    who.appendChild(el("span", null, "Page notice"));
+  } else if (t.role === "user") {
     who.appendChild(el("span", null, "You wrote"));
   } else {
     who.appendChild(el("span", null, "Aster — unverified machine output"));
@@ -608,7 +612,7 @@ function refreshTranscript() {
 
 function persist() {
   try {
-    var trimmed = state.history.slice(-STORE_LIMIT);
+    var trimmed = state.history.slice(-STORE_LIMIT).filter(function (t) { return t.role !== "notice"; });
     window.localStorage.setItem(STORE_KEY, JSON.stringify(trimmed));
   } catch (err) {
     /* Quota or a blocked storage partition: the page still works in memory,
@@ -654,11 +658,13 @@ function restore() {
 }
 
 function addSystemNote(text) {
-  var turn = el("div", "turn problem");
-  turn.appendChild(el("div", "who", "Page notice"));
-  turn.appendChild(el("div", "bubble", text));
+  /* Goes through state so a later refreshTranscript() cannot wipe it, but it is
+     never written to localStorage: it describes this visit, not the transcript. */
+  var turn = { role: "notice", text: text, note: null, meta: null, problem: true };
+  state.history.push(turn);
+  while (state.history.length > STORE_LIMIT) state.history.shift();
   ui.empty.hidden = true;
-  ui.turns.appendChild(turn);
+  renderTurn(turn);
   scrollToEnd();
 }
 
@@ -789,6 +795,7 @@ function sendMessage(rawText) {
     role: "model", text: "Generating…", note: null,
     meta: "Aster is sampling on the CPU in the local server.", problem: false
   });
+  state.pendingIndex = pendingIndex;
 
   state.busy = true;
   state.seq += 1;
@@ -871,6 +878,7 @@ function sendMessage(rawText) {
     if (mySeq !== state.seq) return;
     state.busy = false;
     state.controller = null;
+    state.pendingIndex = null;
     refreshControls();
     updateHint();
     ui.input.focus();
@@ -880,10 +888,21 @@ function sendMessage(rawText) {
 function stopGeneration() {
   if (!state.busy) return;
   var controller = state.controller;
+  var pendingIndex = state.pendingIndex;
   state.busy = false;
   state.seq += 1;                 /* invalidate anything still in flight */
+  state.pendingIndex = null;
   if (controller) { try { controller.abort(); } catch (err) { /* already gone */ } }
   state.controller = null;
+  /* Resolve the waiting turn here rather than in the aborted request's own
+     handler, because raising state.seq above makes that handler bail out. */
+  if (pendingIndex !== null && state.history[pendingIndex] &&
+      state.history[pendingIndex].text === "Generating…") {
+    replaceTurn(pendingIndex, {
+      text: "Stopped. The request was cancelled before Aster finished, so there is no reply.",
+      note: null, meta: "Cancelled in the browser.", problem: true
+    });
+  }
   refreshControls();
   addSystemNote("Stop pressed. The in-flight request to the local server was cancelled.");
   ui.input.focus();

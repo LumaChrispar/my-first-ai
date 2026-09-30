@@ -89,7 +89,7 @@ Held-out loss on 68 conversations the model never saw:
 
 | | Loss | Perplexity |
 |---|---|---|
-| Before training (random init) | 5.5823 | 265.7 |
+| Before training (random init) | 5.5823 | 265.69 |
 | Best (step 1 075) | **2.0938** | **8.12** |
 
 That is a 62 % reduction. **Read it narrowly.** It is not a measure of general

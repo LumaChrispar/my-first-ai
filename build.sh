@@ -71,7 +71,9 @@ if [ ! -e "$OUT" ]; then
 fi
 
 printf '\n'
-printf 'BUILD SUCCEEDED - %s was created with no compiler warnings.\n\n' "$OUT"
+printf 'BUILD SUCCEEDED - %s was created.\n' "$OUT"
+printf 'Any compiler warnings are listed above; this build is warning-free with\n'
+printf -- '-Wall -Wextra on MinGW-w64 GCC 15, so treat any warning as a regression.\n\n'
 printf 'Check that the tokenizer, bounds handling and checkpoint IO all work:\n\n'
 printf '    ./%s selftest\n\n' "$OUT"
 printf 'Then train a model and start the local server:\n\n'
