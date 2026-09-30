@@ -1,0 +1,131 @@
+
+  architecture: 2 layer(s), d_model 64, 4 head(s) of width 16, d_ff 256, context 128 tokens, vocab 261
+  parameters:  124352 (0.124 million), token embedding tied to the output head
+  building the training split
+  read  data/demo_chat.jsonl                             45865 bytes
+  train split: 332 window(s), 26578 tokens, 45865 source bytes, 1 source(s)
+  train hash:   fnv1a-4965f599
+  building the validation split
+  read  data/demo_valid.jsonl                             9737 bytes
+  valid split: 68 window(s), 5762 tokens, 9737 source bytes, 1 source(s)
+  valid hash:   fnv1a-afd7ed80
+  step      0  valid loss 5.5856  perplexity   266.56   (untrained)
+  training: seed 1234, 3000 step(s), batch 8 x 128 tokens, lr 1.00e-03 (warmup 100, cosine to 10%), AdamW wd 0.010, clip 1.00
+  step     25  train 5.3766  valid 5.0314 (ppl  153.15)  elapsed    6.3s    4072 tok/s  lr 2.50e-04
+  step     50  train 4.7825  valid 4.1676 (ppl   64.56)  elapsed   13.8s    3419 tok/s  lr 5.00e-04
+  step     75  train 3.9336  valid 3.2905 (ppl   26.86)  elapsed   21.2s    3469 tok/s  lr 7.50e-04
+  step    100  train 3.2680  valid 2.9231 (ppl   18.60)  elapsed   28.5s    3489 tok/s  lr 1.00e-03
+  step    125  train 2.8850  valid 2.6874 (ppl   14.69)  elapsed   35.7s    3546 tok/s  lr 1.00e-03
+  step    150  train 2.6551  valid 2.5523 (ppl   12.84)  elapsed   42.9s    3564 tok/s  lr 9.99e-04
+  step    175  train 2.5346  valid 2.4755 (ppl   11.89)  elapsed   50.1s    3576 tok/s  lr 9.99e-04
+  step    200  train 2.4503  valid 2.4412 (ppl   11.49)  elapsed   57.7s    3337 tok/s  lr 9.97e-04
+  step    225  train 2.4055  valid 2.4186 (ppl   11.23)  elapsed   64.9s    3569 tok/s  lr 9.96e-04
+  step    250  train 2.3750  valid 2.4106 (ppl   11.14)  elapsed   72.6s    3322 tok/s  lr 9.94e-04
+  step    275  train 2.3454  valid 2.4024 (ppl   11.05)  elapsed   79.8s    3536 tok/s  lr 9.92e-04
+  step    300  train 2.3228  valid 2.3774 (ppl   10.78)  elapsed   87.7s    3276 tok/s  lr 9.90e-04
+  step    325  train 2.3109  valid 2.3608 (ppl   10.60)  elapsed   95.6s    3230 tok/s  lr 9.87e-04
+  step    350  train 2.2883  valid 2.3620 (ppl   10.61)  elapsed  102.8s    3542 tok/s  lr 9.84e-04
+  step    375  train 2.2582  valid 2.3527 (ppl   10.51)  elapsed  110.2s    3445 tok/s  lr 9.80e-04
+  step    400  train 2.2488  valid 2.3360 (ppl   10.34)  elapsed  117.8s    3401 tok/s  lr 9.77e-04
+  step    425  train 2.2401  valid 2.3373 (ppl   10.35)  elapsed  125.0s    3535 tok/s  lr 9.73e-04
+  step    450  train 2.2111  valid 2.3083 (ppl   10.06)  elapsed  132.3s    3514 tok/s  lr 9.68e-04
+  step    475  train 2.1880  valid 2.3103 (ppl   10.08)  elapsed  139.7s    3463 tok/s  lr 9.64e-04
+  step    500  train 2.1767  valid 2.2942 (ppl    9.92)  elapsed  147.3s    3382 tok/s  lr 9.59e-04
+  step    525  train 2.1606  valid 2.2871 (ppl    9.85)  elapsed  154.8s    3382 tok/s  lr 9.53e-04
+  step    550  train 2.1334  valid 2.2983 (ppl    9.96)  elapsed  162.5s    3334 tok/s  lr 9.48e-04
+  step    575  train 2.1391  valid 2.2879 (ppl    9.85)  elapsed  169.9s    3445 tok/s  lr 9.42e-04
+  step    600  train 2.1174  valid 2.2705 (ppl    9.68)  elapsed  177.2s    3507 tok/s  lr 9.36e-04
+  step    625  train 2.0901  valid 2.2478 (ppl    9.47)  elapsed  184.5s    3531 tok/s  lr 9.29e-04
+  step    650  train 2.0806  valid 2.2584 (ppl    9.57)  elapsed  191.8s    3482 tok/s  lr 9.23e-04
+  step    675  train 2.0442  valid 2.2481 (ppl    9.47)  elapsed  199.0s    3596 tok/s  lr 9.16e-04
+  step    700  train 2.0478  valid 2.2535 (ppl    9.52)  elapsed  206.2s    3546 tok/s  lr 9.09e-04
+  step    725  train 2.0027  valid 2.2619 (ppl    9.60)  elapsed  214.0s    3260 tok/s  lr 9.01e-04
+  step    750  train 1.9967  valid 2.2249 (ppl    9.25)  elapsed  221.6s    3388 tok/s  lr 8.93e-04
+  step    775  train 1.9956  valid 2.2326 (ppl    9.32)  elapsed  229.6s    3201 tok/s  lr 8.85e-04
+  step    800  train 1.9537  valid 2.2202 (ppl    9.21)  elapsed  236.9s    3477 tok/s  lr 8.77e-04
+  step    825  train 1.9505  valid 2.2432 (ppl    9.42)  elapsed  244.3s    3458 tok/s  lr 8.69e-04
+  step    850  train 1.9248  valid 2.2240 (ppl    9.24)  elapsed  252.5s    3157 tok/s  lr 8.60e-04
+  step    875  train 1.9145  valid 2.2236 (ppl    9.24)  elapsed  259.8s    3472 tok/s  lr 8.51e-04
+  step    900  train 1.9223  valid 2.1942 (ppl    8.97)  elapsed  267.0s    3578 tok/s  lr 8.42e-04
+  step    925  train 1.8902  valid 2.2143 (ppl    9.15)  elapsed  274.2s    3571 tok/s  lr 8.32e-04
+  step    950  train 1.8650  valid 2.2210 (ppl    9.22)  elapsed  281.3s    3582 tok/s  lr 8.23e-04
+  step    975  train 1.8309  valid 2.2153 (ppl    9.16)  elapsed  288.9s    3383 tok/s  lr 8.13e-04
+  step   1000  train 1.8311  valid 2.2004 (ppl    9.03)  elapsed  296.4s    3391 tok/s  lr 8.03e-04
+  step   1025  train 1.8078  valid 2.1976 (ppl    9.00)  elapsed  303.7s    3529 tok/s  lr 7.93e-04
+  step   1050  train 1.7865  valid 2.1944 (ppl    8.97)  elapsed  311.1s    3426 tok/s  lr 7.82e-04
+  step   1075  train 1.7696  valid 2.1971 (ppl    9.00)  elapsed  318.4s    3528 tok/s  lr 7.72e-04
+  step   1100  train 1.7312  valid 2.2052 (ppl    9.07)  elapsed  325.7s    3494 tok/s  lr 7.61e-04
+  step   1125  train 1.7174  valid 2.2130 (ppl    9.14)  elapsed  333.4s    3325 tok/s  lr 7.50e-04
+  step   1150  train 1.7044  valid 2.1983 (ppl    9.01)  elapsed  340.6s    3546 tok/s  lr 7.39e-04
+  step   1175  train 1.6740  valid 2.2065 (ppl    9.08)  elapsed  347.8s    3564 tok/s  lr 7.28e-04
+  step   1200  train 1.6705  valid 2.2094 (ppl    9.11)  elapsed  355.0s    3569 tok/s  lr 7.17e-04
+  step   1225  train 1.6645  valid 2.2119 (ppl    9.13)  elapsed  363.1s    3164 tok/s  lr 7.06e-04
+  step   1250  train 1.6021  valid 2.2116 (ppl    9.13)  elapsed  370.6s    3403 tok/s  lr 6.94e-04
+  step   1275  train 1.6157  valid 2.2112 (ppl    9.13)  elapsed  378.1s    3436 tok/s  lr 6.83e-04
+  step   1300  train 1.5940  valid 2.2247 (ppl    9.25)  elapsed  385.2s    3565 tok/s  lr 6.71e-04
+  step   1325  train 1.5625  valid 2.2107 (ppl    9.12)  elapsed  392.7s    3441 tok/s  lr 6.59e-04
+  step   1350  train 1.5923  valid 2.2306 (ppl    9.31)  elapsed  399.9s    3545 tok/s  lr 6.47e-04
+  step   1375  train 1.5413  valid 2.2428 (ppl    9.42)  elapsed  407.1s    3566 tok/s  lr 6.35e-04
+  step   1400  train 1.5088  valid 2.2708 (ppl    9.69)  elapsed  414.9s    3259 tok/s  lr 6.23e-04
+  step   1425  train 1.5045  valid 2.2375 (ppl    9.37)  elapsed  422.4s    3441 tok/s  lr 6.11e-04
+  step   1450  train 1.4530  valid 2.2711 (ppl    9.69)  elapsed  429.6s    3533 tok/s  lr 5.99e-04
+  step   1475  train 1.4693  valid 2.2445 (ppl    9.44)  elapsed  437.8s    3152 tok/s  lr 5.87e-04
+  step   1500  train 1.4531  valid 2.2674 (ppl    9.65)  elapsed  445.2s    3448 tok/s  lr 5.75e-04
+  step   1525  train 1.4144  valid 2.2863 (ppl    9.84)  elapsed  452.3s    3573 tok/s  lr 5.63e-04
+  step   1550  train 1.4129  valid 2.2774 (ppl    9.75)  elapsed  460.0s    3320 tok/s  lr 5.50e-04
+  step   1575  train 1.3856  valid 2.2908 (ppl    9.88)  elapsed  467.9s    3257 tok/s  lr 5.38e-04
+  step   1600  train 1.3840  valid 2.2672 (ppl    9.65)  elapsed  476.7s    2910 tok/s  lr 5.26e-04
+  step   1625  train 1.3493  valid 2.2964 (ppl    9.94)  elapsed  485.3s    2964 tok/s  lr 5.14e-04
+  step   1650  train 1.3521  valid 2.3035 (ppl   10.01)  elapsed  493.1s    3301 tok/s  lr 5.02e-04
+  step   1675  train 1.3271  valid 2.3169 (ppl   10.14)  elapsed  501.3s    3111 tok/s  lr 4.90e-04
+  step   1700  train 1.2995  valid 2.3387 (ppl   10.37)  elapsed  510.6s    2769 tok/s  lr 4.78e-04
+  step   1725  train 1.2959  valid 2.3356 (ppl   10.34)  elapsed  519.3s    2925 tok/s  lr 4.66e-04
+  step   1750  train 1.2774  valid 2.3156 (ppl   10.13)  elapsed  527.8s    3020 tok/s  lr 4.54e-04
+  step   1775  train 1.2510  valid 2.3510 (ppl   10.50)  elapsed  535.7s    3224 tok/s  lr 4.42e-04
+  step   1800  train 1.2430  valid 2.3413 (ppl   10.39)  elapsed  543.5s    3309 tok/s  lr 4.30e-04
+  step   1825  train 1.2402  valid 2.3939 (ppl   10.96)  elapsed  552.1s    2980 tok/s  lr 4.18e-04
+  step   1850  train 1.2073  valid 2.3817 (ppl   10.82)  elapsed  560.5s    3026 tok/s  lr 4.07e-04
+  step   1875  train 1.1946  valid 2.4031 (ppl   11.06)  elapsed  568.6s    3181 tok/s  lr 3.95e-04
+  step   1900  train 1.1979  valid 2.4095 (ppl   11.13)  elapsed  575.9s    3487 tok/s  lr 3.84e-04
+  step   1925  train 1.1727  valid 2.3749 (ppl   10.75)  elapsed  583.2s    3535 tok/s  lr 3.73e-04
+  step   1950  train 1.1598  valid 2.4225 (ppl   11.27)  elapsed  590.5s    3510 tok/s  lr 3.61e-04
+  step   1975  train 1.1283  valid 2.4387 (ppl   11.46)  elapsed  597.7s    3521 tok/s  lr 3.50e-04
+  step   2000  train 1.1364  valid 2.4323 (ppl   11.38)  elapsed  605.0s    3544 tok/s  lr 3.40e-04
+  step   2025  train 1.1045  valid 2.4598 (ppl   11.70)  elapsed  612.2s    3543 tok/s  lr 3.29e-04
+  step   2050  train 1.0993  valid 2.4548 (ppl   11.64)  elapsed  619.4s    3564 tok/s  lr 3.18e-04
+  step   2075  train 1.0743  valid 2.4764 (ppl   11.90)  elapsed  626.5s    3563 tok/s  lr 3.08e-04
+  step   2100  train 1.0727  valid 2.5030 (ppl   12.22)  elapsed  633.7s    3564 tok/s  lr 2.98e-04
+  step   2125  train 1.0601  valid 2.5067 (ppl   12.26)  elapsed  640.9s    3565 tok/s  lr 2.88e-04
+  step   2150  train 1.0387  valid 2.5201 (ppl   12.43)  elapsed  648.1s    3559 tok/s  lr 2.78e-04
+  step   2175  train 1.0275  valid 2.5135 (ppl   12.35)  elapsed  655.3s    3567 tok/s  lr 2.68e-04
+  step   2200  train 1.0278  valid 2.5217 (ppl   12.45)  elapsed  662.5s    3523 tok/s  lr 2.59e-04
+  step   2225  train 1.0040  valid 2.5666 (ppl   13.02)  elapsed  669.8s    3540 tok/s  lr 2.50e-04
+  step   2250  train 0.9992  valid 2.5683 (ppl   13.04)  elapsed  677.1s    3493 tok/s  lr 2.41e-04
+  step   2275  train 0.9795  valid 2.5674 (ppl   13.03)  elapsed  684.7s    3380 tok/s  lr 2.32e-04
+  step   2300  train 0.9881  valid 2.5965 (ppl   13.42)  elapsed  692.3s    3359 tok/s  lr 2.24e-04
+  step   2325  train 0.9658  valid 2.5718 (ppl   13.09)  elapsed  700.2s    3259 tok/s  lr 2.15e-04
+  step   2350  train 0.9441  valid 2.6147 (ppl   13.66)  elapsed  708.1s    3222 tok/s  lr 2.07e-04
+  step   2375  train 0.9510  valid 2.6230 (ppl   13.78)  elapsed  715.8s    3316 tok/s  lr 2.00e-04
+  step   2400  train 0.9253  valid 2.6356 (ppl   13.95)  elapsed  723.1s    3495 tok/s  lr 1.92e-04
+  step   2425  train 0.9279  valid 2.6285 (ppl   13.85)  elapsed  731.1s    3219 tok/s  lr 1.85e-04
+  step   2450  train 0.9084  valid 2.6414 (ppl   14.03)  elapsed  738.9s    3280 tok/s  lr 1.78e-04
+  step   2475  train 0.9026  valid 2.6548 (ppl   14.22)  elapsed  746.4s    3426 tok/s  lr 1.71e-04
+  step   2500  train 0.9191  valid 2.6546 (ppl   14.22)  elapsed  753.8s    3459 tok/s  lr 1.65e-04
+  step   2525  train 0.8903  valid 2.6672 (ppl   14.40)  elapsed  761.0s    3539 tok/s  lr 1.59e-04
+  step   2550  train 0.8762  valid 2.6899 (ppl   14.73)  elapsed  768.5s    3405 tok/s  lr 1.53e-04
+  step   2575  train 0.8977  valid 2.6915 (ppl   14.75)  elapsed  775.7s    3556 tok/s  lr 1.47e-04
+  step   2600  train 0.8671  valid 2.7106 (ppl   15.04)  elapsed  783.0s    3515 tok/s  lr 1.42e-04
+  step   2625  train 0.8677  valid 2.6955 (ppl   14.81)  elapsed  790.5s    3400 tok/s  lr 1.37e-04
+  step   2650  train 0.8661  valid 2.7120 (ppl   15.06)  elapsed  797.9s    3486 tok/s  lr 1.32e-04
+  step   2675  train 0.8284  valid 2.7413 (ppl   15.51)  elapsed  805.1s    3534 tok/s  lr 1.28e-04
+  step   2700  train 0.8347  valid 2.7444 (ppl   15.55)  elapsed  812.8s    3323 tok/s  lr 1.24e-04
+  step   2725  train 0.8374  valid 2.7393 (ppl   15.48)  elapsed  820.7s    3268 tok/s  lr 1.20e-04
+  step   2750  train 0.8363  valid 2.7519 (ppl   15.67)  elapsed  828.8s    3152 tok/s  lr 1.17e-04
+  step   2775  train 0.8079  valid 2.7649 (ppl   15.88)  elapsed  836.7s    3246 tok/s  lr 1.13e-04
+  step   2800  train 0.8051  valid 2.7779 (ppl   16.08)  elapsed  845.2s    3006 tok/s  lr 1.11e-04
+  step   2825  train 0.8244  valid 2.7854 (ppl   16.21)  elapsed  853.3s    3153 tok/s  lr 1.08e-04
+  step   2850  train 0.8135  valid 2.7896 (ppl   16.27)  elapsed  861.3s    3205 tok/s  lr 1.06e-04
+  step   2875  train 0.8075  valid 2.7764 (ppl   16.06)  elapsed  869.1s    3264 tok/s  lr 1.04e-04
+  step   2900  train 0.7904  valid 2.7879 (ppl   16.25)  elapsed  877.0s    3260 tok/s  lr 1.03e-04
+  step   2925  train 0.7867  valid 2.7848 (ppl   16.20)  elapsed  884.6s    3355 tok/s  lr 1.02e-04
+  step   2950  train 0.8026  valid 2.8013 (ppl   16.47)  elapsed  891.9s    3529 tok/s  lr 1.01e-04

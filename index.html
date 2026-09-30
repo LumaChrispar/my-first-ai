@@ -1,32 +1,958 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#10131b">
-  <title>Aster AI — local prototype</title>
-  <style>
-    :root{color-scheme:dark;--bg:#10131b;--panel:#171b26;--panel2:#1d2230;--line:#2b3141;--text:#eef1f8;--muted:#98a1b5;--accent:#9a8cff;--accent2:#69d5bf;--user:#292440}
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -25%,#282343 0,transparent 48%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:flex;justify-content:center}
-    .app{width:min(100%,900px);height:100vh;min-height:560px;display:flex;flex-direction:column;padding:0 24px}.top{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff0d}.brand{display:flex;align-items:center;gap:12px;font-weight:650;letter-spacing:.01em}.mark{width:34px;height:34px;border-radius:11px;background:linear-gradient(140deg,#b5a9ff,#68d9c2);display:grid;place-items:center;color:#171628;font-weight:900;font-size:18px}.local{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:5px 10px;border-radius:99px}.local i{display:inline-block;width:7px;height:7px;background:var(--accent2);border-radius:50%;margin-right:6px}.main{flex:1;overflow:auto;padding:34px 0;scrollbar-width:thin}.welcome{max-width:610px;margin:9vh auto 0;text-align:center}.orb{width:62px;height:62px;border-radius:20px;margin:0 auto 22px;background:linear-gradient(145deg,#a79aff,#62d3bf);display:grid;place-items:center;color:#171628;font-size:29px;font-weight:800;box-shadow:0 10px 50px #9989ff25}.welcome h1{font-size:29px;letter-spacing:-.04em;margin:0 0 9px}.welcome p{color:var(--muted);margin:0 auto 26px;max-width:490px}.suggestions{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}.suggestions button{background:#ffffff08;border:1px solid var(--line);color:#c9cde0;border-radius:10px;padding:9px 13px;cursor:pointer}.suggestions button:hover{border-color:#8174ce;color:white}.messages{max-width:700px;margin:0 auto;display:flex;flex-direction:column;gap:20px}.message{display:flex;gap:12px;animation:up .2s ease}.message.user{flex-direction:row-reverse}.avatar{flex:0 0 31px;height:31px;border-radius:10px;display:grid;place-items:center;background:#282d3a;color:#bcb2ff;font-size:13px;font-weight:700}.user .avatar{background:#39334f;color:#ddd5ff}.bubble{max-width:min(82%,600px);padding:12px 15px;background:var(--panel);border:1px solid #ffffff0c;border-radius:4px 15px 15px 15px;white-space:pre-wrap;overflow-wrap:anywhere}.user .bubble{background:var(--user);border-radius:15px 4px 15px 15px}.typing{color:var(--muted);font-size:13px}.compose-wrap{padding:12px 0 20px;background:linear-gradient(transparent,var(--bg) 20%)}.compose{max-width:700px;margin:auto;background:var(--panel);border:1px solid #343a4b;border-radius:17px;padding:10px 11px 9px;box-shadow:0 14px 45px #0003}.compose:focus-within{border-color:#8174ce;box-shadow:0 0 0 3px #9a8cff14,0 14px 45px #0003}.compose textarea{width:100%;resize:none;background:none;border:0;outline:0;color:var(--text);font:inherit;max-height:150px;min-height:30px;padding:4px 7px}.compose textarea::placeholder{color:#737d92}.controls{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 0 7px}.hint{font-size:11px;color:#737d92}.send{width:35px;height:35px;border:0;border-radius:11px;background:var(--accent);color:#19152e;display:grid;place-items:center;cursor:pointer}.send:disabled{opacity:.45;cursor:default}.send svg{width:17px;height:17px}.foot{text-align:center;font-size:11px;color:#737d92;padding:0 0 14px}.foot span{color:#ac9fff}.notice{max-width:700px;margin:0 auto 12px;padding:9px 12px;border:1px solid #5c4b32;background:#251f19;color:#d8c7a8;border-radius:10px;font-size:12px}.hidden{display:none!important}@keyframes up{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
-    @media(max-width:600px){.app{padding:0 15px}.top{height:64px}.welcome{margin-top:7vh}.welcome h1{font-size:25px}.main{padding-top:22px}.suggestions{gap:7px}.suggestions button{font-size:12px}.bubble{max-width:88%}.foot{font-size:10px}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<title>Aster — local text model</title>
+<style>
+  /* ---------------------------------------------------------------- tokens */
+  :root {
+    color-scheme: dark light;
+    --bg:        #0f1218;
+    --bg-soft:   #141924;
+    --panel:     #171d2a;
+    --panel-2:   #1d2432;
+    --line:      #2a3345;
+    --line-soft: #222a38;
+    --text:      #e9edf5;
+    --text-dim:  #a8b2c4;
+    --text-mute: #8b95a8;
+    --accent:    #7fb2ff;
+    --accent-in: #0c1220;
+    --good:      #6fd7a8;
+    --warn-bg:   #2a2317;
+    --warn-line: #6b5426;
+    --warn-text: #ecd7ac;
+    --stop-bg:   #2b1a1d;
+    --stop-line: #6d3238;
+    --stop-text: #f0c2c4;
+    --focus:     #9cc6ff;
+    --radius:    12px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg:        #f6f7fa;
+      --bg-soft:   #ffffff;
+      --panel:     #ffffff;
+      --panel-2:   #f0f2f7;
+      --line:      #d3d9e4;
+      --line-soft: #e4e8f0;
+      --text:      #14181f;
+      --text-dim:  #414b5c;
+      --text-mute: #5a6478;
+      --accent:    #1f5fbf;
+      --accent-in: #ffffff;
+      --good:      #1c6b45;
+      --warn-bg:   #fdf6e7;
+      --warn-line: #d9bd7c;
+      --warn-text: #5b4517;
+      --stop-bg:   #fdeef0;
+      --stop-line: #dda3a9;
+      --stop-text: #7a2229;
+      --focus:     #1f5fbf;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  .skip-link {
+    position: absolute; left: 8px; top: -60px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; z-index: 20; transition: top .12s ease;
+  }
+  .skip-link:focus { top: 8px; }
+
+  /* ---------------------------------------------------------------- layout */
+  .app {
+    width: min(100%, 960px);
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0 20px;
+  }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; flex-wrap: wrap;
+    padding: 16px 0 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand h1 { font-size: 19px; font-weight: 650; margin: 0; letter-spacing: .01em; }
+  .brand .sub { font-size: 13px; color: var(--text-mute); }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12.5px; color: var(--text-dim);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 11px; background: var(--panel);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-mute); flex: none; }
+  .status-pill[data-state="ready"]    .dot { background: var(--good); }
+  .status-pill[data-state="notready"] .dot { background: #e0a44a; }
+  .status-pill[data-state="error"]    .dot { background: #dd6b6b; }
+
+  /* --------------------------------------------------------------- banners */
+  .banner {
+    margin-top: 14px; padding: 12px 14px;
+    border: 1px solid var(--warn-line); border-radius: var(--radius);
+    background: var(--warn-bg); color: var(--warn-text);
+    font-size: 13.5px;
+  }
+  .banner h2 { margin: 0 0 6px; font-size: 13.5px; font-weight: 650; }
+  .banner p { margin: 0 0 6px; }
+  .banner p:last-child { margin-bottom: 0; }
+  .banner strong { color: inherit; }
+
+  .local-note {
+    margin-top: 10px; padding: 10px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--panel); color: var(--text-dim);
+    font-size: 13px;
+  }
+  .local-note p { margin: 0; }
+  .local-note p + p { margin-top: 5px; }
+
+  .gate {
+    margin-top: 14px; padding: 16px;
+    border: 1px solid var(--stop-line); border-radius: var(--radius);
+    background: var(--stop-bg); color: var(--stop-text);
+  }
+  .gate h2 { margin: 0 0 8px; font-size: 15px; font-weight: 650; }
+  .gate p { margin: 0 0 10px; font-size: 13.5px; }
+  .gate pre {
+    margin: 0 0 10px; padding: 11px 13px;
+    background: var(--bg-soft); color: var(--text);
+    border: 1px solid var(--line); border-radius: 9px;
+    overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  [hidden] { display: none !important; }
+
+  /* ----------------------------------------------------------------- facts */
+  .facts {
+    margin-top: 14px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--panel);
+  }
+  .facts h2 {
+    margin: 0 0 9px; font-size: 12px; font-weight: 650;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--text-mute);
+  }
+  .facts dl {
+    margin: 0; display: grid; gap: 6px 18px;
+    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  }
+  .facts div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .facts dt { color: var(--text-mute); }
+  .facts dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; text-align: right; }
+
+  /* ------------------------------------------------------------ transcript */
+  main.transcript {
+    flex: 1 1 auto; overflow-y: auto;
+    padding: 18px 2px 8px; min-height: 140px;
+    scrollbar-width: thin;
+  }
+  .turns { display: flex; flex-direction: column; gap: 14px; max-width: 760px; margin: 0 auto; }
+
+  .turn { display: flex; flex-direction: column; gap: 5px; }
+  .turn .who {
+    font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-mute); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+  }
+  .turn .bubble {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 10px 13px; background: var(--panel);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    max-width: 88%;
+  }
+  .turn.user .bubble { background: var(--panel-2); border-color: var(--line); }
+  .turn.user .who { color: var(--text-dim); }
+  .turn.model .who { color: var(--text-mute); }
+  .turn.model .bubble { border-left: 3px solid var(--accent); }
+
+  .turn .note {
+    margin: 2px 0 0; font-size: 12.5px; color: var(--warn-text);
+    background: var(--warn-bg); border: 1px solid var(--warn-line);
+    border-radius: 8px; padding: 6px 9px; max-width: 88%;
+  }
+  .turn .meta {
+    margin: 2px 0 0; font-size: 11.5px; color: var(--text-mute);
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .turn .problem { border-left-color: #dd6b6b; }
+  .turn.problem .who { color: var(--stop-text); }
+  .turn.problem .bubble {
+    background: var(--stop-bg); border-color: var(--stop-line); color: var(--stop-text);
+  }
+
+  .empty-state {
+    max-width: 760px; margin: 24px auto; text-align: center;
+    color: var(--text-mute); font-size: 13.5px;
+  }
+
+  /* ---------------------------------------------------------------- compose */
+  .compose-bar {
+    border-top: 1px solid var(--line-soft);
+    padding: 12px 0 18px;
+  }
+  .compose-inner { max-width: 760px; margin: 0 auto; }
+  .composer {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--panel); padding: 9px 10px 8px;
+  }
+  .composer:focus-within { border-color: var(--accent); }
+  .composer textarea {
+    width: 100%; border: 0; outline: 0; resize: none;
+    background: transparent; color: var(--text);
+    font: inherit; padding: 4px 5px; min-height: 26px; max-height: 150px;
+    display: block;
+  }
+  .composer textarea::placeholder { color: var(--text-mute); }
+  .composer textarea:disabled { opacity: .55; cursor: not-allowed; }
+  .composer:focus-within:has(textarea:disabled) { border-color: var(--line); }
+
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; margin-top: 6px; padding: 0 2px 0 4px;
+  }
+  .row .hint { font-size: 12px; color: var(--text-mute); }
+  .row .hint.warn { color: var(--warn-text); }
+
+  .buttons { display: flex; gap: 8px; }
+  button {
+    font: inherit; font-size: 13px; cursor: pointer;
+    border-radius: 9px; padding: 7px 13px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent); border-color: var(--accent); color: var(--accent-in);
+    font-weight: 600; min-width: 74px;
+  }
+  button.danger { background: var(--stop-bg); border-color: var(--stop-line); color: var(--stop-text); }
+
+  footer.foot {
+    max-width: 760px; margin: 0 auto; padding-bottom: 16px;
+    font-size: 12px; color: var(--text-mute);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+
+  @media (max-width: 620px) {
+    .app { padding: 0 13px; }
+    header.top { padding-top: 12px; }
+    .brand h1 { font-size: 17px; }
+    .turn .bubble, .turn .note { max-width: 100%; }
+    .row .hint { width: 100%; }
+  }
+</style>
 </head>
 <body>
-  <div class="app">
-    <header class="top"><div class="brand"><div class="mark">A</div><span>Aster</span></div><div class="local"><i></i>Local prototype</div></header>
-    <main class="main" id="main">
-      <section class="welcome" id="welcome"><div class="orb">✳</div><h1>Start a conversation</h1><p>This is the first step in building your own AI. Ask something to try the C-powered prototype.</p><div class="suggestions"><button data-prompt="What can you do?">What can you do?</button><button data-prompt="Who are you?">Who are you?</button><button data-prompt="Help me plan a project">Help me plan a project</button></div></section>
-      <section class="messages hidden" id="messages" aria-live="polite"></section>
-    </main>
-    <div class="compose-wrap"><div class="notice">Prototype engine: simple C rules, not a trained language model yet. Replies are limited.</div><form class="compose" id="form"><textarea id="input" rows="1" placeholder="Message Aster…" aria-label="Message Aster"></textarea><div class="controls"><span class="hint">Enter to send · Shift + Enter for a new line</span><button class="send" id="send" type="submit" aria-label="Send message"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div></form></div>
-    <footer class="foot">Built in <span>C</span> · Runs on this computer</footer>
+<a class="skip-link" href="#compose-input">Skip to the message box</a>
+
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <h1>Aster</h1>
+      <span class="sub">a very small local text model</span>
+    </div>
+    <div class="status-pill" id="status-pill" data-state="unknown">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="status-text">Checking the model…</span>
+    </div>
+  </header>
+
+  <!-- Always visible. This is the honesty contract with the person using the page. -->
+  <section class="banner" aria-labelledby="capability-heading">
+    <h2 id="capability-heading">What this is, and what it cannot do</h2>
+    <p>
+      Aster is a tiny experimental neural network written from scratch in C and running
+      entirely on this computer. It was trained on one small local text file. It has
+      <strong>no reliable knowledge</strong> — it does not know who you are, what year it is,
+      or how anything in the world works, and it cannot look anything up.
+    </p>
+    <p>
+      It has <strong>no web access, no network access, no tools, and no persistent memory</strong>.
+      Everything it says is produced by sampling a few hundred thousand numbers. Its replies are
+      frequently <strong>wrong, incomplete, or incoherent</strong>. Treat every reply below as
+      unverified machine output, never as a fact or as advice.
+    </p>
+  </section>
+
+  <section class="local-note" aria-labelledby="local-heading">
+    <h2 id="local-heading" class="sr-only">Where this runs and where your words go</h2>
+    <p>
+      The server is a single process on this machine, bound to the loopback interface
+      (127.0.0.1) only; it refuses to serve any other machine on the network, and this page
+      loads nothing from the internet. Nothing is written to a server-side log.
+    </p>
+    <p id="storage-note">
+      Your transcript is kept only in this browser's localStorage on this computer and is
+      never transmitted anywhere; when you reload this page it is restored, and Clear erases it.
+    </p>
+  </section>
+
+  <!-- Status gate: shown when no checkpoint is loaded, or when status could not be read. -->
+  <section class="gate" id="gate" hidden aria-labelledby="gate-heading">
+    <h2 id="gate-heading">The model is not trained — no replies can be generated</h2>
+    <p id="gate-detail">
+      No checkpoint is loaded on the server, so it has nothing to generate from. Nothing on
+      this page was written by a model, and no example conversation is shown, because any
+      answer you saw here would be invented by the page rather than produced by Aster.
+    </p>
+    <pre id="gate-command" tabindex="0"></pre>
+    <p>
+      Run that command in the project folder, then press Recheck below. The message box stays
+      disabled until the server reports a loaded checkpoint.
+    </p>
+  </section>
+
+  <!-- Real numbers, filled in from /api/status. Never hard-coded. -->
+  <section class="facts" id="facts" hidden aria-labelledby="facts-heading">
+    <h2 id="facts-heading">This model, as the server reports it</h2>
+    <dl id="facts-list"></dl>
+  </section>
+
+  <main class="transcript" id="transcript">
+    <div class="turns" id="turns" role="log" aria-live="polite" aria-relevant="additions"
+         aria-label="Conversation transcript"></div>
+    <p class="empty-state" id="empty-state">No messages yet. Whatever you type is sent only to the local server described above.</p>
+  </main>
+
+  <div class="compose-bar">
+    <div class="compose-inner">
+      <form class="composer" id="composer" novalidate>
+        <label class="sr-only" for="compose-input">Your message to Aster</label>
+        <textarea id="compose-input" name="message" rows="1" autocomplete="off"
+                  autocapitalize="off" spellcheck="false"
+                  placeholder="Short message…" disabled></textarea>
+        <div class="row">
+          <span class="hint" id="hint">Enter sends · Shift + Enter adds a line</span>
+          <span class="buttons">
+            <button type="button" id="clear-btn" disabled>Clear</button>
+            <button type="button" id="stop-btn" class="danger" disabled>Stop</button>
+            <button type="submit" id="send-btn" class="primary" disabled>Send</button>
+          </span>
+        </div>
+      </form>
+    </div>
+    <footer class="foot" id="foot">
+      <button type="button" id="recheck-btn">Recheck model status</button>
+      <span id="foot-note"></span>
+    </footer>
   </div>
+
+</div>
+
 <script>
-const form=document.querySelector('#form'),input=document.querySelector('#input'),send=document.querySelector('#send'),messages=document.querySelector('#messages'),welcome=document.querySelector('#welcome'),main=document.querySelector('#main');
-function addMessage(role,text){const row=document.createElement('div');row.className='message '+role;const avatar=document.createElement('div');avatar.className='avatar';avatar.textContent=role==='user'?'Y':'A';const bubble=document.createElement('div');bubble.className='bubble';bubble.textContent=text;row.append(avatar,bubble);messages.append(row);main.scrollTop=main.scrollHeight;return row}
-async function submit(text){text=(text??input.value).trim();if(!text||send.disabled)return;welcome.classList.add('hidden');messages.classList.remove('hidden');addMessage('user',text);input.value='';input.style.height='auto';send.disabled=true;const row=addMessage('assistant','Thinking…');row.querySelector('.bubble').classList.add('typing');try{const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});if(!res.ok)throw new Error('The local C server returned an error.');const data=await res.json();row.querySelector('.bubble').textContent=data.reply;row.querySelector('.bubble').classList.remove('typing')}catch(e){row.querySelector('.bubble').textContent='Could not reach the C server. Make sure Aster is running in the project folder, then refresh this page.';row.querySelector('.bubble').classList.remove('typing')}finally{send.disabled=false;input.focus();main.scrollTop=main.scrollHeight}}
-form.addEventListener('submit',e=>{e.preventDefault();submit()});input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();submit()}});input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,150)+'px'});document.querySelectorAll('[data-prompt]').forEach(b=>b.addEventListener('click',()=>submit(b.dataset.prompt)));
+"use strict";
+
+/* ------------------------------------------------------------------------
+   Everything below builds DOM with document.createElement and writes only
+   through textContent. There is no innerHTML, no insertAdjacentHTML, no
+   outerHTML, and no element is created from a URL in model or user text, so
+   pasted or generated text can never become markup or a link.
+   Nothing here writes prompts or replies to the browser console.
+   ------------------------------------------------------------------------ */
+
+var STORE_KEY = "aster.transcript.v1";
+var STORE_LIMIT = 80;
+
+var state = {
+  ready: false,       /* server confirmed a checkpoint is loaded */
+  checked: false,     /* a /api/status round trip has completed */
+  busy: false,        /* a chat request is in flight */
+  controller: null,   /* AbortController for the in-flight request */
+  seq: 0,             /* monotonic id so an aborted reply can be discarded */
+  budget: null,       /* prompt_budget_bytes reported by the server */
+  maxNew: null,
+  history: []         /* { role, text, note, meta, problem } */
+};
+
+function $(id) { return document.getElementById(id); }
+
+var ui = {
+  pill: $("status-pill"),
+  pillText: $("status-text"),
+  gate: $("gate"),
+  gateHeading: $("gate-heading"),
+  gateDetail: $("gate-detail"),
+  gateCommand: $("gate-command"),
+  facts: $("facts"),
+  factsList: $("facts-list"),
+  transcript: $("transcript"),
+  turns: $("turns"),
+  empty: $("empty-state"),
+  form: $("composer"),
+  input: $("compose-input"),
+  send: $("send-btn"),
+  stop: $("stop-btn"),
+  clear: $("clear-btn"),
+  recheck: $("recheck-btn"),
+  hint: $("hint"),
+  footNote: $("foot-note")
+};
+
+/* ------------------------------------------------------------- DOM helpers */
+
+function el(tag, className, text) {
+  var node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  return node;
+}
+
+function isNumber(v) { return typeof v === "number" && isFinite(v); }
+function fmtInt(n) { return isNumber(n) ? n.toLocaleString("en-US") : null; }
+function fmtFixed(n, d) { return isNumber(n) ? n.toFixed(d) : null; }
+
+function utf8Length(s) {
+  if (typeof TextEncoder === "function") return new TextEncoder().encode(s).length;
+  return unescape(encodeURIComponent(s)).length;  /* fallback, same page only */
+}
+
+function scrollToEnd() {
+  ui.transcript.scrollTop = ui.transcript.scrollHeight;
+}
+
+function scrollIntoView(node) {
+  if (node && typeof node.scrollIntoView === "function") {
+    node.scrollIntoView({ block: "nearest" });
+  }
+}
+
+/* --------------------------------------------------------- status display */
+
+function setPill(stateName, text) {
+  ui.pill.setAttribute("data-state", stateName);
+  ui.pillText.textContent = text;
+}
+
+function addFact(term, value) {
+  if (value === null || value === undefined || value === "") return;
+  var row = el("div");
+  row.appendChild(el("dt", null, term));
+  row.appendChild(el("dd", null, value));
+  ui.factsList.appendChild(row);
+}
+
+function renderFacts(s) {
+  ui.factsList.textContent = "";
+  if (!s || s.ready !== true) { ui.facts.hidden = true; return; }
+
+  var a = (s.architecture && typeof s.architecture === "object") ? s.architecture : {};
+  addFact("Checkpoint file", typeof s.model === "string" ? s.model : null);
+  addFact("Parameters", fmtInt(s.parameters));
+  addFact("Layers / attention heads",
+    (isNumber(a.n_layer) && isNumber(a.n_head)) ? a.n_layer + " / " + a.n_head : null);
+  addFact("Model width (d_model) / feed-forward (d_ff)",
+    (isNumber(a.d_model) && isNumber(a.d_ff)) ? a.d_model + " / " + a.d_ff : null);
+  addFact("Context window", isNumber(a.context_tokens) ? fmtInt(a.context_tokens) + " tokens" : null);
+  addFact("Vocabulary", isNumber(a.vocab) ? fmtInt(a.vocab) + " tokens" : null);
+  addFact("Tokenizer", typeof s.tokenizer === "string" ? s.tokenizer : null);
+  addFact("Training step", fmtInt(s.train_step));
+  addFact("Seed", fmtInt(s.seed));
+  addFact("Max new tokens per reply", fmtInt(s.max_new_tokens));
+  addFact("Sampling temperature", fmtFixed(s.temperature, 3));
+  addFact("Top-k", isNumber(s.top_k) ? String(s.top_k) : null);
+  addFact("Prompt budget for your message",
+    isNumber(s.prompt_budget_bytes) ? fmtInt(s.prompt_budget_bytes) + " bytes" : null);
+  addFact("Network access", typeof s.network === "string" ? s.network : null);
+  addFact("Tools", typeof s.tools === "string" ? s.tools : null);
+  addFact("Persistent memory", typeof s.persistent_memory === "string" ? s.persistent_memory : null);
+
+  ui.facts.hidden = false;
+}
+
+function applyStatus(s) {
+  state.checked = true;
+
+  if (s && s.ready === true) {
+    state.ready = true;
+    state.budget = isNumber(s.prompt_budget_bytes) ? s.prompt_budget_bytes : null;
+    state.maxNew = isNumber(s.max_new_tokens) ? s.max_new_tokens : null;
+    setPill("ready", "Model loaded");
+    ui.gate.hidden = true;
+    renderFacts(s);
+    var steps = fmtInt(s.train_step);
+    ui.footNote.textContent = steps
+      ? "  ·  server loaded a checkpoint trained for " + steps + " steps."
+      : "";
+  } else {
+    state.ready = false;
+    state.budget = null;
+    setPill("notready", "No model loaded");
+    ui.facts.hidden = true;
+    ui.factsList.textContent = "";
+
+    ui.gateHeading.textContent = "The model is not trained — no replies can be generated";
+    ui.gateDetail.textContent =
+      (s && typeof s.detail === "string" && s.detail)
+        ? s.detail
+        : "The server reported no checkpoint, so there is nothing to generate from.";
+
+    var cmd = (s && typeof s.how_to_train === "string" && s.how_to_train)
+      ? s.how_to_train
+      : "aster train --data data/demo_chat.jsonl --out models/aster-small.bin --seed 1234";
+    ui.gateCommand.textContent = cmd;
+    ui.gate.hidden = false;
+
+    var extra = [];
+    if (s && typeof s.network === "string") extra.push("network: " + s.network);
+    if (s && typeof s.tools === "string") extra.push("tools: " + s.tools);
+    if (extra.length) ui.gateDetail.textContent += "  (" + extra.join(", ") + ")";
+  }
+  refreshControls();
+}
+
+function showGateError(message) {
+  state.checked = true;
+  state.ready = false;
+  state.budget = null;
+  ui.facts.hidden = true;
+  ui.factsList.textContent = "";
+  setPill("error", "Status unavailable");
+  ui.gateHeading.textContent = "Could not read the model's status";
+  ui.gateDetail.textContent = message;
+  ui.gateCommand.textContent = "";
+  ui.gate.hidden = false;
+  refreshControls();
+}
+
+/* ------------------------------------------------------------- transcript */
+
+function renderTurn(t) {
+  var turn = el("div", "turn " + (t.problem ? "problem" : t.role));
+
+  var who = el("div", "who");
+  if (t.role === "user") {
+    who.appendChild(el("span", null, "You wrote"));
+  } else {
+    who.appendChild(el("span", null, "Aster — unverified machine output"));
+  }
+  turn.appendChild(who);
+
+  var bubble = el("div", "bubble", t.text);
+  if (t.problem) bubble.classList.add("problem");
+  turn.appendChild(bubble);
+
+  if (t.note) turn.appendChild(el("p", "note", "Note from the server: " + t.note));
+  if (t.meta) turn.appendChild(el("p", "meta", t.meta));
+
+  ui.turns.appendChild(turn);
+  return turn;
+}
+
+function addTurn(t) {
+  state.history.push(t);
+  while (state.history.length > STORE_LIMIT) state.history.shift();
+  ui.empty.hidden = true;
+  var node = renderTurn(t);
+  persist();
+  scrollToEnd();
+  return node;
+}
+
+function replaceTurn(index, t) {
+  var old = state.history[index];
+  var keep = old ? old.role : t.role;
+  state.history[index] = { role: keep, text: t.text, note: t.note, meta: t.meta, problem: t.problem };
+  ui.turns.textContent = "";
+  ui.empty.hidden = state.history.length > 0;
+  var last = null;
+  for (var i = 0; i < state.history.length; i++) last = renderTurn(state.history[i]);
+  persist();
+  scrollToEnd();
+  if (last) scrollIntoView(last);
+}
+
+function refreshTranscript() {
+  ui.turns.textContent = "";
+  ui.empty.hidden = state.history.length > 0;
+  for (var i = 0; i < state.history.length; i++) renderTurn(state.history[i]);
+  scrollToEnd();
+}
+
+/* ---------------------------------------------------------------- storage */
+
+function persist() {
+  try {
+    var trimmed = state.history.slice(-STORE_LIMIT);
+    window.localStorage.setItem(STORE_KEY, JSON.stringify(trimmed));
+  } catch (err) {
+    /* Quota or a blocked storage partition: the page still works in memory,
+       and the on-page sentence already says where the transcript lives. */
+    ui.footNote.textContent = "  ·  this browser refused to save the transcript locally.";
+  }
+}
+
+function restore() {
+  var raw = null;
+  try { raw = window.localStorage.getItem(STORE_KEY); } catch (err) { raw = null; }
+  if (!raw) return 0;
+
+  var parsed = null;
+  try { parsed = JSON.parse(raw); } catch (err) { parsed = null; }
+  if (!parsed || Object.prototype.toString.call(parsed) !== "[object Array]") return 0;
+
+  var kept = [];
+  for (var i = 0; i < parsed.length; i++) {
+    var e = parsed[i];
+    if (!e || typeof e !== "object") continue;
+    var role = (e.role === "user") ? "user" : "model";
+    if (typeof e.text !== "string" || !e.text) continue;
+    kept.push({
+      role: role,
+      text: e.text.slice(0, 20000),
+      note: typeof e.note === "string" && e.note ? e.note.slice(0, 2000) : null,
+      meta: typeof e.meta === "string" && e.meta ? e.meta.slice(0, 500) : null,
+      problem: e.problem === true
+    });
+  }
+  if (!kept.length) return 0;
+  state.history = kept;
+
+  /* Say so, out loud, whenever a transcript is silently brought back. */
+  var n = kept.length;
+  addSystemNote(
+    "Restored " + n + " earlier " + (n === 1 ? "message" : "messages") +
+    " from this browser's localStorage. That text was saved by an earlier visit on this " +
+    "computer and was not re-generated now."
+  );
+  return n;
+}
+
+function addSystemNote(text) {
+  var turn = el("div", "turn problem");
+  turn.appendChild(el("div", "who", "Page notice"));
+  turn.appendChild(el("div", "bubble", text));
+  ui.empty.hidden = true;
+  ui.turns.appendChild(turn);
+  scrollToEnd();
+}
+
+function clearTranscript() {
+  state.history = [];
+  ui.turns.textContent = "";
+  ui.empty.hidden = false;
+  try { window.localStorage.removeItem(STORE_KEY); } catch (err) { /* nothing to clear */ }
+  ui.footNote.textContent = "";
+  addSystemNote("Transcript cleared. The copy in this browser's localStorage was deleted too.");
+  refreshControls();
+  ui.input.focus();
+}
+
+/* --------------------------------------------------------------- controls */
+
+function byteHint() {
+  var text = ui.input.value;
+  if (!text) {
+    return state.budget !== null
+      ? "Enter sends · Shift + Enter adds a line"
+      : "Enter sends · Shift + Enter adds a line";
+  }
+  var bytes = utf8Length(text);
+  if (state.budget !== null && bytes > state.budget) {
+    return bytes + " of " + state.budget +
+      " prompt bytes used — the server will drop the oldest " + (bytes - state.budget) +
+      " bytes and only answer from the end.";
+  }
+  if (state.budget !== null) {
+    return bytes + " of " + state.budget + " prompt bytes used";
+  }
+  return text.length + " characters";
+}
+
+function updateHint() {
+  ui.hint.textContent = byteHint();
+  ui.hint.classList.toggle("warn", state.budget !== null && ui.input.value !== "" &&
+                           utf8Length(ui.input.value) > state.budget);
+}
+
+function refreshControls() {
+  var usable = state.checked && state.ready && !state.busy;
+  ui.input.disabled = !usable;
+  ui.send.disabled = !usable;
+  /* Clear and Stop are disabled when they would do nothing useful. Clear is
+     off mid-request so a pending turn cannot be orphaned; Stop is off until
+     there is something to abort, and on for exactly as long as it can work. */
+  ui.clear.disabled = state.busy || state.history.length === 0;
+  ui.stop.disabled = !state.busy;
+  ui.recheck.disabled = state.busy;
+  if (state.busy) {
+    ui.input.setAttribute("aria-busy", "true");
+  } else {
+    ui.input.removeAttribute("aria-busy");
+  }
+  if (!usable) ui.hint.classList.remove("warn");
+}
+
+/* ------------------------------------------------------------------ chat */
+
+function metaFromReply(d) {
+  var bits = [];
+  if (typeof d.model === "string" && d.model) bits.push("model: " + d.model);
+  if (isNumber(d.train_step)) bits.push("trained " + fmtInt(d.train_step) + " steps");
+  if (isNumber(d.max_new_tokens)) bits.push("reply capped at " + fmtInt(d.max_new_tokens) + " tokens");
+  if (d.hit_end_marker === true) bits.push("stopped at an end-of-turn marker");
+  if (bits.length) bits.push("not verified");
+  return bits.join(" · ");
+}
+
+/* Turns a rejected response into a sentence a person can act on. */
+function describeFailure(status, data) {
+  var code = (data && typeof data.error === "string") ? data.error : null;
+  var msg = (data && typeof data.message === "string" && data.message) ? data.message : null;
+
+  if (status === 503 || code === "model_not_trained") {
+    return "The server has no checkpoint loaded, so it cannot answer. Train one (command " +
+           "shown above) and press Recheck.";
+  }
+  if (status === 413 || code === "message_too_long" || code === "body_too_large") {
+    return msg ? msg + " Try a much shorter message." :
+      "That message was longer than this server accepts. Try a much shorter message.";
+  }
+  if (status === 400) {
+    return msg || "The server could not read that request (HTTP 400). Try rephrasing it.";
+  }
+  if (status === 404) {
+    return "The server has no /api/chat endpoint at that address. Check that the address in " +
+           "your browser bar is the one the Aster server printed when it started.";
+  }
+  if (status === 405) {
+    return "The server refused that request method (HTTP 405). It only accepts GET and POST.";
+  }
+  if (status === 431 || status === 411) {
+    return "The request was malformed (HTTP " + status + "). Reload the page and try again.";
+  }
+  if (status >= 500) {
+    return (msg ? msg + " " : "") +
+           "The local server hit an internal error (HTTP " + status + "). Check its terminal output.";
+  }
+  return (msg ? msg + " " : "") + "The request failed with HTTP " + status + ".";
+}
+
+function sendMessage(rawText) {
+  var text = (typeof rawText === "string" ? rawText : ui.input.value).replace(/^\s+|\s+$/g, "");
+
+  if (text === "") {
+    addSystemNote("Nothing was sent: the message was empty. Type something and press Send.");
+    ui.input.focus();
+    return;
+  }
+  if (state.busy) return;
+  if (!state.ready) {
+    addSystemNote("Nothing was sent: the server reports no trained model. Train one, then press Recheck.");
+    return;
+  }
+
+  var userIndex = state.history.length;
+  addTurn({ role: "user", text: text, note: null, meta: null, problem: false });
+
+  ui.input.value = "";
+  autoGrow();
+  updateHint();
+
+  var pendingIndex = state.history.length;
+  addTurn({
+    role: "model", text: "Generating…", note: null,
+    meta: "Aster is sampling on the CPU in the local server.", problem: false
+  });
+
+  state.busy = true;
+  state.seq += 1;
+  var mySeq = state.seq;
+  var controller = new AbortController();
+  state.controller = controller;
+  refreshControls();
+
+  var payload = JSON.stringify({ message: text });
+
+  window.fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    signal: controller.signal,
+    cache: "no-store",
+    credentials: "omit",
+    referrerPolicy: "no-referrer"
+  }).then(function (res) {
+    return res.text().then(function (bodyText) {
+      var data = null;
+      var parseFailed = false;
+      try { data = bodyText ? JSON.parse(bodyText) : null; } catch (err) { parseFailed = true; }
+
+      if (mySeq !== state.seq) return;   /* superseded or stopped: drop it */
+
+      if (!res.ok) {
+        replaceTurn(pendingIndex, {
+          text: describeFailure(res.status, data), note: null,
+          meta: "Request failed (HTTP " + res.status + ").", problem: true
+        });
+        if (res.status === 503) checkStatus();
+        return;
+      }
+      if (parseFailed || !data || typeof data !== "object") {
+        replaceTurn(pendingIndex, {
+          text: "The server replied with HTTP " + res.status + " but the body was not valid " +
+                "JSON, so there is nothing to show. This usually means the address is being " +
+                "served by something other than Aster.",
+          note: null,
+          meta: "Unreadable response body.", problem: true
+        });
+        return;
+      }
+      if (typeof data.reply !== "string") {
+        replaceTurn(pendingIndex, {
+          text: "The server's reply was missing its \"reply\" field, so nothing can be shown. " +
+                "Check the Aster terminal output for a server error.",
+          note: null, meta: "Malformed reply payload.", problem: true
+        });
+        return;
+      }
+
+      var note = (typeof data.note === "string" && data.note) ? data.note : null;
+      var shown = data.reply.length ? data.reply : "(the model produced no visible characters)";
+      replaceTurn(pendingIndex, {
+        text: shown, note: note, meta: metaFromReply(data), problem: false
+      });
+    });
+  }).catch(function (err) {
+    if (mySeq !== state.seq) return;   /* aborted or superseded: never append a stale reply */
+
+    var aborted = (err && (err.name === "AbortError" || err.code === 20));
+    if (aborted) {
+      replaceTurn(pendingIndex, {
+        text: "Stopped. The request was cancelled before Aster finished, so there is no reply.",
+        note: null, meta: "Cancelled in the browser.", problem: true
+      });
+      return;
+    }
+    replaceTurn(pendingIndex, {
+      text: "Could not reach the Aster server. It may have stopped, or it may not be the " +
+            "program listening at this address. Start it with: aster serve --model " +
+            "models/aster-small.bin --port 8080 — then reload this page.",
+      note: null,
+      meta: "Network request failed (" + (err && err.name ? err.name : "unknown") + ").",
+      problem: true
+    });
+  }).then(function () {
+    if (mySeq !== state.seq) return;
+    state.busy = false;
+    state.controller = null;
+    refreshControls();
+    updateHint();
+    ui.input.focus();
+  });
+}
+
+function stopGeneration() {
+  if (!state.busy) return;
+  var controller = state.controller;
+  state.busy = false;
+  state.seq += 1;                 /* invalidate anything still in flight */
+  if (controller) { try { controller.abort(); } catch (err) { /* already gone */ } }
+  state.controller = null;
+  refreshControls();
+  addSystemNote("Stop pressed. The in-flight request to the local server was cancelled.");
+  ui.input.focus();
+}
+
+/* ---------------------------------------------------------------- status */
+
+function checkStatus() {
+  return window.fetch("/api/status", {
+    method: "GET",
+    cache: "no-store",
+    credentials: "omit",
+    referrerPolicy: "no-referrer"
+  }).then(function (res) {
+    return res.text().then(function (t) {
+      var data = null;
+      try { data = JSON.parse(t); } catch (err) { data = null; }
+      if (!data || typeof data !== "object") {
+        showGateError(
+          "The server answered HTTP " + res.status + " but did not return valid JSON, so its " +
+          "status is unknown. Make sure the Aster server is the program listening at this " +
+          "address, then press Recheck."
+        );
+        return;
+      }
+      applyStatus(data);
+    });
+  }).catch(function (err) {
+    showGateError(
+      "No response from the Aster server ("
+      + (err && err.name ? err.name : "network error")
+      + "). Start it from the project folder with: aster serve --model models/aster-small.bin " +
+      "--port 8080 — then press Recheck."
+    );
+  });
+}
+
+/* ------------------------------------------------------------------ text */
+
+function autoGrow() {
+  ui.input.style.height = "auto";
+  ui.input.style.height = Math.min(ui.input.scrollHeight, 150) + "px";
+}
+
+/* ------------------------------------------------------------------ wiring */
+
+ui.form.addEventListener("submit", function (e) {
+  e.preventDefault();
+  sendMessage(ui.input.value);
+});
+
+ui.input.addEventListener("keydown", function (e) {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    sendMessage(ui.input.value);
+  }
+});
+
+ui.input.addEventListener("input", function () { autoGrow(); updateHint(); });
+
+ui.clear.addEventListener("click", clearTranscript);
+ui.stop.addEventListener("click", stopGeneration);
+ui.recheck.addEventListener("click", function () { checkStatus(); });
+
+restore();
+refreshTranscript();
+refreshControls();
+updateHint();
+checkStatus();
 </script>
 </body>
 </html>

@@ -1,0 +1,71 @@
+{
+  "_comment": [
+    "Copy this file to manifest.json next to your data and fill it in.",
+    "The manifest is not read by the code. It exists so that anyone looking at",
+    "a checkpoint can find out what it was trained on, from where, and under",
+    "what terms -- and so that a reviewer can check the claim rather than trust it.",
+    "Delete every key you cannot actually fill in. An honest gap beats a filled-in guess."
+  ],
+
+  "name": "aster-demo-chat",
+  "description": "332 short question/answer pairs written by hand for the Aster teaching demo, covering what the model is, what it cannot do, and refusals for medical, legal, financial, hiring and emergency topics.",
+
+  "provenance": {
+    "origin": "original",
+    "author": "the Aster project",
+    "method": "written by hand for this repository",
+    "scraped": false,
+    "downloaded": false,
+    "derived_from_a_language_model": false,
+    "contains_personal_data": false,
+    "contains_credentials": false,
+    "notes": "No third-party corpus, no copyrighted source text, and no real person's identifying detail was used at any point."
+  },
+
+  "license": {
+    "spdx": "CC0-1.0",
+    "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "notes": "Applies only to the files in this directory. It says nothing about data you add later."
+  },
+
+  "files": [
+    {
+      "path": "demo_chat.jsonl",
+      "role": "train",
+      "bytes": 45865,
+      "sha256": "76785434f78e29c02820bb38efabed70fadb1a7aa655c4f33f3b7adbcb320417",
+      "conversations": 332
+    },
+    {
+      "path": "demo_valid.jsonl",
+      "role": "validation",
+      "bytes": 9737,
+      "sha256": "dae7cb730c367ff4199b60585ed6d7f1c5a295c890e128e48bd1348928c199b9",
+      "conversations": 68
+    },
+    {
+      "path": "demo_text.txt",
+      "role": "train_text_mode",
+      "bytes": 4577,
+      "sha256": "3c90cbb5e8dc163a9251dfe4662a7a98255c9f86120c8fb0cb93b6d543c01f9c",
+      "conversations": null
+    }
+  ],
+
+  "training": {
+    "mode": "chat",
+    "seed": 1234,
+    "steps": 3000,
+    "batch": 8,
+    "block_tokens": 64,
+    "checkpoint_selection": "best held-out loss during training",
+    "valid_loss_start": 5.5823,
+    "valid_loss_best": 2.0938
+  },
+
+  "known_limitations": [
+    "Far too small for the model to learn general knowledge.",
+    "Validation questions are unseen but topically adjacent, so held-out loss overstates real generalisation.",
+    "Answers share a single narrow voice, which flatters the loss relative to open-ended chat."
+  ]
+}

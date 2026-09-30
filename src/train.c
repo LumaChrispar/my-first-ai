@@ -585,6 +585,22 @@ int aster_train(const TrainConfig *tc, const AsterConfig *mcfg,
     double val0 = va ? dataset_eval_loss(model, va, B, &ppl) : 0.0;
     if (va) aster_info("step %6d  valid loss %.4f  perplexity %8.2f   (untrained)", 0, val0, ppl);
 
+    /* Keep the parameters from the step with the best held-out loss.
+     *
+     * A 124k-parameter model given a few hundred examples will drive its
+     * training loss to zero and then keep going: memorisation, not learning.
+     * The last step is therefore the worst place to stop, and reporting the
+     * final loss would report overfitting rather than what the model achieved.
+     * Selecting on held-out data is the standard fix, and it makes the
+     * reported number the honest best this run reached. */
+    float *best_params = NULL;
+    double best_val = val0;
+    int best_step = 0;
+    if (va) {
+        best_params = (float *)aster_xmalloc((size_t)nparams * sizeof(float));
+        memcpy(best_params, model->params, (size_t)nparams * sizeof(float));
+    }
+
     aster_info("training: seed %u, %d step(s), batch %d x %d tokens, lr %.2e "
                "(warmup %d, cosine to %.0f%%), AdamW wd %.3f, clip %.2f",
                tc->seed, tc->steps, B, block, (double)tc->lr, tc->warmup,
@@ -629,6 +645,11 @@ int aster_train(const TrainConfig *tc, const AsterConfig *mcfg,
             if (va) {
                 double v = dataset_eval_loss(model, va, B, &ppl);
                 snprintf(vbuf, sizeof vbuf, "%.4f (ppl %7.2f)", v, ppl);
+                if (v < best_val) {
+                    best_val = v;
+                    best_step = step;
+                    memcpy(best_params, model->params, (size_t)nparams * sizeof(float));
+                }
             } else {
                 snprintf(vbuf, sizeof vbuf, "%s", "n/a");
             }
@@ -650,6 +671,12 @@ int aster_train(const TrainConfig *tc, const AsterConfig *mcfg,
 
     double val1 = val0;
     if (va) {
+        if (best_step > 0 && best_step < step) {
+            aster_info("held-out loss was still rising at step %d; reverting to the best "
+                       "held-out parameters from step %d", step - 1, best_step);
+            memcpy(model->params, best_params, (size_t)nparams * sizeof(float));
+            step = best_step;
+        }
         val1 = dataset_eval_loss(model, va, B, &ppl);
         aster_info("held-out loss %.4f -> %.4f  (perplexity %.2f): %s",
                    val0, val1, ppl, val1 < val0 ? "improved" : "NO IMPROVEMENT");
@@ -657,6 +684,7 @@ int aster_train(const TrainConfig *tc, const AsterConfig *mcfg,
             aster_warn("the held-out loss did not fall. That is a real result and is "
                        "reported as such. More steps, a lower --lr, or more data may help.");
     }
+    free(best_params);
 
     aster_checkpoint_save(model, out_path, ad.m, ad.v, (uint32_t)step, tc->seed,
                           (uint32_t)ASTER_DEFAULT_MAX_NEW, 0.0f);
@@ -690,14 +718,17 @@ int aster_train(const TrainConfig *tc, const AsterConfig *mcfg,
             "  \"train_windows\": %d,\n"
             "  \"valid_windows\": %d,\n"
             "  \"valid_loss_start\": %.6f,\n"
-            "  \"valid_loss_end\": %.6f\n"
+            "  \"valid_loss_end\": %.6f,\n"
+            "  \"checkpoint_selection\": \"best held-out loss during training\",\n"
+            "  \"best_step\": %d\n"
             "}\n",
             ASTER_CHECKPOINT_FORMAT, ASTER_ARCH_VERSION, ASTER_TOKENIZER_VERSION,
             mcfg->n_layer, mcfg->n_head, mcfg->d_model, mcfg->d_ff, mcfg->context,
             mcfg->vocab, nparams, step, tc->seed, B, block,
             (double)tc->lr, tc->warmup, (double)tc->weight_decay,
             (double)tc->beta1, (double)tc->beta2, (double)tc->clip,
-            tr->hash, va ? va->hash : "", tr->n_win, va ? va->n_win : 0, val0, val1);
+            tr->hash, va ? va->hash : "", tr->n_win, va ? va->n_win : 0, val0, val1,
+            best_step);
         if (n > 0 && (size_t)n < sizeof meta) {
             char path[1200];
             snprintf(path, sizeof path, "%s.meta.json", out_path);

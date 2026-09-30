@@ -193,6 +193,34 @@ int main(int argc, char **argv) {
                reg[k].name, reg[k].bad, reg[k].sig, reg[k].silent, reg[k].worst);
         badtot += reg[k].bad; sigtot += reg[k].sig;
     }
+    {   /* Calibrate the self-test tolerance from measurement rather than
+         * guesswork: report the worst relative error over entries that are
+         * large enough to matter for training. */
+        double maxnum = 0.0;
+        for (int i = 0; i < M->off.total; ++i) {
+            double a = fabs(fd(i));
+            if (a > maxnum) maxnum = a;
+        }
+        printf("max|grad| = %.4e%c", maxnum, 10);
+        const double fracs[4] = {1e-1, 1e-2, 1e-3, 1e-4};
+        for (int f = 0; f < 4; ++f) {
+            double worst = 0.0; int n = 0, over = 0, wi = -1;
+            for (int i = 0; i < M->off.total; ++i) {
+                double num = fd(i);
+                if (fabs(num) < fracs[f] * maxnum) continue;
+                ++n;
+                double r = fabs(M->grads[i] - num) / fabs(num);
+                if (r > worst) { worst = r; wi = i; }
+                if (r > 0.05) ++over;
+            }
+            if (wi >= 0) {
+                double num = fd(wi);
+                printf("%c    worst at param %d: ana %+.6e num %+.6e", 10, wi, M->grads[wi], num);
+            }
+            printf("  |num| >= %4.0e*max : n=%5d worst_rel=%.4f  over_5pct=%d%c",
+                   fracs[f], n, worst, over, 10);
+        }
+    }
     printf("TOTAL bad=%d of %d significant\n", badtot, sigtot);
 
     aster_acts_free(A);

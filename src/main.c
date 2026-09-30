@@ -166,6 +166,42 @@ static int check(int ok, const char *what, int *failures) {
     return ok;
 }
 
+/* Loss of a tiny fixed window, used by the gradient check below. */
+static double gc_loss(AsterModel *m, AsterActs *a, const uint16_t *x,
+                      const uint16_t *y, const float *w) {
+    double l = 0.0;
+    aster_forward(m, a, x, y, w, &l);
+    return l;
+}
+
+/* Central difference of the loss with respect to params[i], Richardson
+ * extrapolated from step h and h/2 so the O(h^2) truncation term cancels
+ * without needing a smaller (and noisier) step.
+ *
+ * `cur` must be computed before the extrapolation. Folding the new difference
+ * into `d` and then reusing `d` on the next step silently evaluates
+ * (4*D(h) - D(h))/3 == D(h): a plain central difference, with the h/2 passes
+ * computed and discarded. That mistake hides the O(h^2) error instead of
+ * cancelling it -- at h=1e-2 it is worth about 20% on the larger gradients,
+ * which is far enough to make a correct backward pass look broken. */
+static double gc_numeric(AsterModel *m, AsterActs *a, const uint16_t *x,
+                         const uint16_t *y, const float *w, int i) {
+    const float o = m->params[i];
+    double h = 1e-2, d = 0.0, prev = 0.0;
+    for (int k = 0; k < 2; ++k) {
+        m->params[i] = (float)(o + h);
+        double p = gc_loss(m, a, x, y, w);
+        m->params[i] = (float)(o - h);
+        double q = gc_loss(m, a, x, y, w);
+        double cur = (p - q) / (2.0 * h);
+        d = (k == 0) ? cur : (4.0 * cur - prev) / 3.0;
+        prev = cur;
+        h *= 0.5;
+    }
+    m->params[i] = o;
+    return d;
+}
+
 static int cmd_selftest(void) {
     int failures = 0;
     aster_info("Aster self-test");
@@ -308,15 +344,17 @@ static int cmd_selftest(void) {
         size_t sz = 0;
         if (f) { fseek(f, 0, SEEK_END); sz = (size_t)ftell(f); fclose(f); }
         size_t cut = sz > 40 ? sz / 2 : sz;
-        f = fopen("models/selftest-trunc.bin", "wb");
-        if (f && sz) {
+        if (sz) {
             char *buf = (char *)aster_xmalloc(cut);
-            f = fopen("models/selftest.bin", "rb");
-            if (f && fread(buf, 1, cut, f) == cut) {
+            FILE *rd = fopen("models/selftest.bin", "rb");
+            if (rd && fread(buf, 1, cut, rd) == cut) {
                 FILE *g = fopen("models/selftest-trunc.bin", "wb");
                 if (g) { fwrite(buf, 1, cut, g); fclose(g); }
             }
-            if (f) fclose(f);
+            /* Both handles must be closed here. Windows refuses to remove a
+             * file that still has an open handle, so a leak here silently
+             * leaves selftest-trunc.bin behind after a passing run. */
+            if (rd) fclose(rd);
             free(buf);
         }
         r = aster_checkpoint_load("models/selftest-trunc.bin", NULL, NULL, NULL, NULL, err, sizeof err);
@@ -359,6 +397,81 @@ static int cmd_selftest(void) {
         check(strcmp(a, b) == 0, "greedy generation is reproducible for a fixed seed", &failures);
         check(utf8_is_valid(a, strlen(a)), "generated output is valid UTF-8", &failures);
         check(strlen(a) <= 20, "generation respects max_new_tokens", &failures);
+        aster_model_free(m);
+    }
+
+    /* ---- generation reads every step it takes, not just the first ----
+     *
+     * aster_forward computes exactly a->T rows. If the acts are sized to the
+     * initial prompt rather than the whole context, every row past the prompt
+     * stays at its calloc'd zero, the logits look uniformly 0.00, and argmax
+     * returns a control token -- so generation silently stops after one
+     * character while the loss on held-out data still looks healthy. Decoding
+     * here by hand, with acts sized for the full context, and requiring the two
+     * to agree catches that: they cannot agree unless every step is a real
+     * forward pass over the real sequence. */
+    {
+        AsterConfig cfg;
+        aster_config_default(&cfg);
+        AsterModel *m = aster_model_new(&cfg, 11u, 0);
+        /* The output head is tied to the token embedding, so pushing the five
+         * control rows far negative makes argmax unable to select them. Without
+         * this an untrained model stops at step 0 and the test would never
+         * reach a second forward pass, which is exactly where the bug lived. */
+        for (int id = TOK_SYSTEM; id <= TOK_PAD; ++id)
+            for (int c = 0; c < cfg.d_model; ++c)
+                m->params[m->off.tok_emb + (size_t)id * cfg.d_model + c] = -40.0f;
+        const char *prompt = "are you a robot";
+        const int C = cfg.context;
+        int max_new = 24;
+
+        /* Reference decode: argmax only, arena sized for the whole context. */
+        uint16_t *seq = (uint16_t *)aster_xmalloc((size_t)C * sizeof(uint16_t));
+        int n = 0;
+        seq[n++] = TOK_SYSTEM;
+        seq[n++] = TOK_USER;
+        for (const char *p = prompt; *p && n < C; ++p) seq[n++] = (uint16_t)(unsigned char)*p;
+        seq[n++] = TOK_END;
+        seq[n++] = TOK_ASSISTANT;
+        AsterActs *ra = aster_acts_new(1, C, &cfg);
+        char ref[512];
+        size_t rn = 0;
+        for (int step = 0; step < max_new && n < C; ++step) {
+            ra->T = n;
+            if (aster_forward(m, ra, seq, NULL, NULL, NULL) < 0.0) break;
+            const float *lg = ra->logits + (size_t)(n - 1) * (size_t)cfg.vocab;
+            int best = 0;
+            for (int v = 1; v < cfg.vocab; ++v) if (lg[v] > lg[best]) best = v;
+            if (best > ASTER_BYTE_MAX) break;
+            seq[n++] = (uint16_t)best;
+            ref[rn++] = (char)(unsigned char)best;
+        }
+        ref[rn] = '\0';
+        aster_acts_free(ra);
+        free(seq);
+
+        /* Compare like with like: aster_generate runs the raw bytes through the
+         * UTF-8 sanitiser before returning, and an untrained model emits high
+         * bytes that the sanitiser replaces. Sanitise the reference too, or the
+         * comparison passes trivially with both sides empty. */
+        char ref_s[512];
+        size_t ref_sn = utf8_sanitize(ref, rn, ref_s, sizeof ref_s);
+
+        GenParams gp;
+        gen_params_default(&gp);
+        gp.max_new_tokens = max_new;
+        gp.temperature = 0.0f;
+        gp.seed = 1;
+        char got[512];
+        int he = 0, tr = 0;
+        size_t gn = aster_generate(m, prompt, &gp, got, sizeof got, &he, &tr);
+
+        /* Assert on the raw decode length: that is the loop actually running
+         * the requested number of steps, which is the thing that was broken. */
+        check(rn == (size_t)max_new,
+              "generation keeps decoding for every requested step", &failures);
+        check(gn == ref_sn && strcmp(ref_s, got) == 0,
+              "generation matches a reference decode over the whole context", &failures);
         aster_model_free(m);
     }
 
@@ -438,6 +551,88 @@ static int cmd_selftest(void) {
 
             dataset_free(d);
             remove(tmp);
+        }
+    }
+
+    /* ---- analytic gradients match a finite difference of the loss ----
+     * The manual backward pass is the part of this program most easily wrong,
+     * and a wrong gradient still trains: the loss falls while the model learns
+     * token frequencies instead of conditioning on the prompt. Nothing else
+     * here would notice, so it is checked directly against the forward pass.
+     *
+     * Only gradients within 1e-2 of the largest are compared. The loss is
+     * accumulated in float32, so f(x) carries about 1e-6 of absolute error and
+     * the finite difference of a tiny gradient is pure rounding: measured on
+     * this code, gradients above that cut agree to 0.7% while those below 1e-4
+     * of the maximum can be 40% off from float32 noise alone. Checking the
+     * negligible ones would mean asserting that rounding errors match. */
+    {
+        /* one layer and two, because the residual stream is indexed with an
+         * L+1 stride and a single-layer model cannot catch a wrong stride */
+        static const int shape[2][3] = { {1, 8, 2}, {2, 8, 2} };
+        for (int ci = 0; ci < 2; ++ci) {
+            AsterConfig gc;
+            aster_config_default(&gc);
+            gc.n_layer = shape[ci][0];
+            gc.d_model = shape[ci][1];
+            gc.n_head  = shape[ci][2];
+            gc.d_ff    = 2 * gc.d_model;
+            gc.context = 8;
+            gc.vocab   = 261;
+            char err[160];
+            if (aster_config_validate(&gc, err, sizeof err) != 0) {
+                aster_warn("gradient check: %s", err);
+                check(0, "analytic gradients match a finite difference", &failures);
+                continue;
+            }
+
+            AsterModel *gm = aster_model_new(&gc, 7u, 1);
+            AsterActs  *ga = aster_acts_new(1, 4, &gc);
+            const uint16_t gx[4] = {1, 5, 9, 20};
+            const uint16_t gy[4] = {5, 9, 20, 42};
+            const float    gw[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+            double l0 = 0.0;
+            aster_forward(gm, ga, gx, gy, gw, &l0);
+            memset(gm->grads, 0, sizeof(float) * (size_t)gm->off.total);
+            aster_backward(gm, ga, gx, gy, gw);
+
+            const int n = gm->off.total;
+            double *num = (double *)malloc(sizeof(double) * (size_t)n);
+            int ok = 1, compared = 0;
+            if (!num) {
+                check(0, "analytic gradients match a finite difference", &failures);
+            } else {
+                double maxnum = 0.0;
+                for (int i = 0; i < n; ++i) {
+                    num[i] = gc_numeric(gm, ga, gx, gy, gw, i);
+                    double a = fabs(num[i]);
+                    if (a > maxnum) maxnum = a;
+                }
+                double worst = 0.0;
+                int worst_i = -1;
+                for (int i = 0; i < n; ++i) {
+                    if (fabs(num[i]) < 1e-2 * maxnum) continue;
+                    ++compared;
+                    double r = fabs((double)gm->grads[i] - num[i]) / fabs(num[i]);
+                    if (r > worst) { worst = r; worst_i = i; }
+                    if (r > 0.02) ok = 0;
+                }
+                if (worst_i >= 0 && !ok)
+                    aster_warn("  %d layers: param %d analytic %+.6e numeric %+.6e",
+                               gc.n_layer, worst_i, gm->grads[worst_i], num[worst_i]);
+                aster_info("  %d-layer check: %d gradients compared, worst relative error %.4f",
+                           gc.n_layer, compared, worst);
+                free(num);
+            }
+            char what[96];
+            snprintf(what, sizeof what,
+                     "analytic gradients match a finite difference (%d layer%s)",
+                     gc.n_layer, gc.n_layer == 1 ? "" : "s");
+            check(ok, what, &failures);
+
+            aster_acts_free(ga);
+            aster_model_free(gm);
         }
     }
 
