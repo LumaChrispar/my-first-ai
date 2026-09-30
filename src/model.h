@@ -35,6 +35,10 @@
 
 #define ASTER_ARCH_VERSION 1
 #define ASTER_CHECKPOINT_MAGIC "ASTERMD2"
+/* The byte-tokenizer format. Never loadable -- a merge table cannot be invented
+ * -- but recognised so a stale checkpoint is told what to do instead of being
+ * told it is not a checkpoint at all. */
+#define ASTER_CHECKPOINT_MAGIC_V1 "ASTERMD1"
 #define ASTER_CHECKPOINT_FORMAT 2
 #define ASTER_LN_EPS 1e-5f
 

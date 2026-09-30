@@ -927,6 +927,52 @@ static int cmd_selftest(void) {
             }
         }
 
+        /* The same check against a file with the REAL v1 magic.
+         *
+         * The fixture above keeps magic "ASTERMD2" and only flips the tokenizer
+         * version, so it exercises the `tokver == 1` branch. A checkpoint
+         * actually written by the byte-tokenizer build starts "ASTERMD1" and
+         * never gets that far -- the magic check rejects it first, and because
+         * v1 has no integrity block its last 36 bytes are weights, so the CRC
+         * would call an intact file damaged too. Both messages are wrong, and
+         * the user is left debugging a file that is fine.
+         *
+         * This is the shape of the bug: the test fixture was a v2 file, so the
+         * v1 path was never walked with a v1 file. */
+        {
+            size_t flen = 0;
+            int fok = 0;
+            char *fb = aster_read_file("models/selftest.bin", &flen, &fok);
+            int made = 0;
+            if (fb && flen > 36 + 16) {
+                memcpy(fb, "ASTERMD1", 8);
+                /* v1 has no integrity block, so strip it and write a bare file
+                 * of the old shape rather than recomputing a block the old
+                 * writer never wrote. */
+                size_t body = flen - 36;
+                aster_write_file_atomic("models/selftest-v1magic.bin", fb, body);
+                made = 1;
+            }
+            free(fb);
+            if (!made) aster_warn("could not build the v1-magic checkpoint fixture");
+            err[0] = '\0';
+            r = aster_checkpoint_load("models/selftest-v1magic.bin", NULL, NULL, NULL, NULL, err, sizeof err);
+            check(r == NULL, "a checkpoint with the real v1 magic is refused", &failures);
+            if (r) aster_model_free(r);
+            else {
+                aster_info("  reason: %s", err);
+                int says_v1    = strstr(err, "byte-tokenizer build") != NULL;
+                int says_retrain = strstr(err, "Retrain") != NULL;
+                int not_a_model = strstr(err, "not an Aster checkpoint") == NULL;
+                int not_damaged = strstr(err, "damaged") == NULL;
+                check(says_v1, "a real v1 file is named as v1, not as a non-checkpoint", &failures);
+                check(says_retrain, "a real v1 file is told to retrain", &failures);
+                check(not_a_model, "a real v1 file is not called 'not an Aster checkpoint'", &failures);
+                check(not_damaged, "a real v1 file is not called damaged", &failures);
+            }
+            remove("models/selftest-v1magic.bin");
+        }
+
         /* Missing file. */
         r = aster_checkpoint_load("models/definitely-not-here.bin", NULL, NULL, NULL, NULL, err, sizeof err);
         check(r == NULL, "a missing checkpoint is rejected", &failures);

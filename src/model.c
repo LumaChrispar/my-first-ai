@@ -821,6 +821,17 @@ AsterModel *aster_checkpoint_load(const char *path,
 
     if (flen < CK_HEADER_BYTES + CK_INTEGRITY_BYTES)
         BAD("file is truncated: too short to be a checkpoint");
+    /* Recognise the v1 format BEFORE the integrity check. A v1 file has no
+     * integrity block, so its last 36 bytes are weights; letting it reach the
+     * CRC would report a perfectly good file as damaged. And the generic
+     * "not an Aster checkpoint" message is simply false about one -- it is an
+     * Aster checkpoint, written by an older build, and the useful thing to say
+     * is what to do about it. */
+    if (memcmp(hdr, ASTER_CHECKPOINT_MAGIC_V1, 8) == 0)
+        BAD("this checkpoint was written by the byte-tokenizer build (format 1). "
+            "This build uses a sub-word vocabulary, and a merge table cannot be "
+            "invented for it, so the file cannot be read. Retrain it: the "
+            "vocabulary and the weights are learned together.");
     if (memcmp(hdr, ASTER_CHECKPOINT_MAGIC, 8) != 0) BAD("bad magic bytes: this is not an Aster checkpoint");
 
     /* Integrity first, before anything is interpreted. A damaged file should

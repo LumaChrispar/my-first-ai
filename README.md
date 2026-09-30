@@ -95,7 +95,7 @@ bug produces a plausible-looking loss *and* a plausible-looking generation:
   measurement in two units, and `exp()` gets silently wrong numbers while
   still picking the same checkpoint
 
-A passing run ends with `self-test passed` and exit code 0. There are **52
+A passing run ends with `self-test passed` and exit code 0. There are **57
 checks**.
 
 ## Vocabulary

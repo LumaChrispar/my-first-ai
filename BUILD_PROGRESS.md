@@ -17,8 +17,8 @@ are kept as the historical record.)*
 
 | Area | State |
 |---|---|
-| Build (`-Wall -Wextra`, MinGW-w64 GCC 15.2) | clean, **zero warnings** — but `aster.exe` is **locked by a stale process (PID 4964)** and has not been rebuilt; this session built `tmp/aster-chk.exe` with identical flags |
-| Self-test suite | **52 checks, all passing**, exit 0 |
+| Build (`-Wall -Wextra`, MinGW-w64 GCC 15.2) | clean, **zero warnings** — `build.bat` **succeeded** once the stale process holding `aster.exe` (PID 4964) exited; the real `aster.exe` is built and passes all 57 checks |
+| Self-test suite | **57 checks, all passing**, exit 0 |
 | Gradient check (analytic vs finite difference) | passes for 1 and 2 layers (worst rel. error 0.0066 / 0.0075) |
 | Tokenizer | sub-word BPE with byte fallback; `encode(decode(encode(s))) == s` verified over an adversarial corpus |
 | Tokenizer / UTF-8 safety | verified |
@@ -635,9 +635,41 @@ Worth recording because three of them were tests that could not fail:
   real fixture (patch one byte of the valid selftest checkpoint, recompute
   CRC + SHA) plus two more assertions.
 
+**5. A real v1 checkpoint was told it was not a checkpoint.** Found only after
+`build.bat` finally succeeded and the stale process holding `aster.exe` had
+exited, which made it possible to point the real binary at the real
+`models/aster-small.bin` for the first time:
+
+```
+error: bad magic bytes: this is not an Aster checkpoint      exit 1
+```
+
+Two separate falsehoods in one line. The file *is* an Aster checkpoint — its
+first eight bytes are `ASTERMD1`, the byte-tokenizer format. And the
+hand-written "you should retrain" message further down the loader was
+**unreachable for any real v1 file**: the magic check at [model.c:824](src/model.c#L824)
+rejected it first, and because v1 has no integrity block its last 36 bytes are
+weights, so the CRC check would have called an intact file *damaged* as well.
+
+The test missed it because **the fixture was a v2 file with one field flipped**.
+It exercised the `tokver == 1` branch, which is a different branch from the one
+a real v1 file takes. Fixed by recognising `ASTERMD1` before the integrity check,
+and by a second fixture that uses the real magic:
+
+```
+error: this checkpoint was written by the byte-tokenizer build (format 1).
+This build uses a sub-word vocabulary, and a merge table cannot be invented for
+it, so the file cannot be read. Retrain it: the vocabulary and the weights are
+learned together.                                                            exit 1
+```
+
+This is the shape worth remembering: **a fixture built from the current format
+cannot test the old-format path.** The test was green, specific, and pointed at
+real code — and still never walked the path a user walks.
+
 ### Commands actually run, and actual results
 
-Self-test — **52 checks, all passing, exit 0**:
+Self-test — **57 checks, all passing, exit 0**:
 
 ```powershell
 .\tmp\aster-chk.exe selftest
@@ -651,6 +683,7 @@ Self-test — **52 checks, all passing, exit 0**:
 | encode is deterministic; two vocab learns are identical | pass |
 | single flipped checkpoint byte caught by the integrity block | pass |
 | byte-tokenizer checkpoint refused with a "retrain" message | pass |
+| a checkpoint with the **real `ASTERMD1` magic** refused by name | pass |
 | fully masked batch → bitwise-zero gradients | pass |
 | loss mask trains the first answer token, under merges too | pass |
 | bits/byte is total nats over total bytes | pass |
@@ -796,8 +829,10 @@ licence and SHA-256 when it is.
   what is loaded.
 - The old `models/aster-small.bin` is a `byte-v1` checkpoint that this build
   **refuses by design**, with a message saying to retrain. It has not been
-  deleted; doing so needs the user's authorisation.
-- `build.bat` still cannot write `aster.exe`, because the stale `aster.exe`
-  (PID 4964) from an earlier session still holds the file. Everything this
-  session was built and run with is `tmp/aster-chk.exe`, compiled with the same
-  flags and warnings. **The real `aster.exe` has not been rebuilt.**
+  deleted; doing so needs the user's authorisation. It is also still the
+  checkpoint `build.bat`'s own closing instructions tell a new user to train over,
+  so retraining is the intended next step rather than an obstacle.
+- `build.bat` **succeeded** and `aster.exe` is built and current. The training,
+  evaluation, generation, corruption and server results above were produced with
+  `tmp/aster-chk.exe` and re-verified against `aster.exe` itself; the numbers are
+  identical.
