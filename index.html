@@ -6,8 +6,8 @@
 <meta name="color-scheme" content="dark">
 <meta name="referrer" content="no-referrer">
 <meta name="description" content="Aster — a tiny local language model running entirely on your own computer with no cloud or internet.">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
-<title>Aster — local text model</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<title>Aster — local AI model</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -162,10 +162,104 @@ header.top {
   0%, 100% { box-shadow: 0 0 6px rgba(79,217,160,0.6); }
   50%       { box-shadow: 0 0 12px rgba(79,217,160,0.9); }
 }
+.header-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 500; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 14px;
+  background: var(--surface);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.header-btn:hover {
+  border-color: rgba(91,155,239,0.35);
+  color: var(--text);
+  background: var(--surface-2);
+}
+.header-btn svg { width: 14px; height: 14px; fill: currentColor; opacity: 0.85; }
+
+/* ============================================================ MODALS */
+dialog.modal {
+  border: none;
+  background: transparent;
+  padding: 0;
+  max-width: 640px;
+  width: calc(100% - 32px);
+  margin: auto;
+  color: var(--text);
+  overflow: visible;
+}
+dialog.modal::backdrop {
+  background: rgba(4, 6, 12, 0.78);
+  backdrop-filter: blur(8px);
+}
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-2);
+}
+.modal-title-group { display: flex; flex-direction: column; gap: 2px; }
+.modal-badge {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  font-weight: 600; color: var(--accent-2);
+}
+.modal-header h2 {
+  margin: 0; font-size: 17px; font-weight: 700; color: var(--text);
+}
+.modal-close {
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-mute); font-size: 22px; line-height: 1;
+  padding: 4px 10px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.modal-close:hover {
+  background: var(--surface-3); color: var(--text); border-color: var(--border);
+}
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 16px;
+  font-size: 13.5px; line-height: 1.6;
+}
+.modal-section {
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 16px;
+}
+.modal-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.modal-section h3 {
+  margin: 0 0 8px; font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--accent-2);
+}
+.modal-section p { margin: 0 0 8px; color: var(--text-dim); }
+.modal-section p:last-child { margin-bottom: 0; }
+.modal-section code {
+  background: var(--surface-3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
 
 /* ============================================================ BANNERS */
 .banner {
-  margin-top: 12px; padding: 13px 16px;
+  padding: 13px 16px;
   border: 1px solid rgba(240,185,87,0.2); border-radius: var(--radius);
   background: linear-gradient(135deg, var(--amber-dim), rgba(30,25,15,0.6));
   color: #d4ab6a; font-size: 13px;
@@ -177,9 +271,9 @@ header.top {
 .banner strong { color: #ebc878; }
 
 .local-note {
-  margin-top: 8px; padding: 10px 15px;
+  padding: 12px 15px;
   border: 1px solid var(--border-soft); border-radius: var(--radius);
-  background: var(--surface); color: var(--text-dim);
+  background: var(--surface-2); color: var(--text-dim);
   font-size: 12.5px;
 }
 .local-note p { margin: 0; }
@@ -204,30 +298,15 @@ header.top {
 
 /* ============================================================ FACTS */
 .facts {
-  margin-top: 8px; padding: 12px 15px;
+  padding: 14px 16px;
   border: 1px solid var(--border-soft); border-radius: var(--radius);
-  background: var(--surface);
-}
-.facts summary {
-  cursor: pointer; color: var(--text-dim); font-size: 13px;
-  font-weight: 500; user-select: none;
-  display: flex; align-items: center; gap: 6px;
-}
-.facts summary::before {
-  content: '›'; font-size: 15px; transition: transform .2s;
-  display: inline-block; margin-right: 2px;
-}
-.facts[open] summary::before { transform: rotate(90deg); }
-.facts[open] summary { margin-bottom: 12px; }
-.facts h2 {
-  margin: 0 0 9px; font-size: 11px; font-weight: 600;
-  letter-spacing: .09em; text-transform: uppercase; color: var(--text-mute);
+  background: var(--surface-2);
 }
 .facts dl {
-  margin: 0; display: grid; gap: 6px 20px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 0; display: grid; gap: 8px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
-.facts div { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; }
+.facts div { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 4px; }
 .facts dt { color: var(--text-mute); }
 .facts dd { margin: 0; color: var(--text-dim); font-variant-numeric: tabular-nums; text-align: right; font-family: var(--mono); font-size: 12px; }
 
@@ -511,6 +590,85 @@ button.ghost:hover:not(:disabled) {
   border-color: var(--border);
 }
 
+/* ============================================================ GENERATED MEDIA */
+.gen-media-wrap {
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(91,155,239,0.2);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 40px rgba(91,155,239,0.06);
+  position: relative;
+  background: #000;
+  max-width: 512px;
+}
+.gen-media-wrap img, .gen-media-wrap video, .gen-media-wrap canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+}
+.gen-media-label {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 8px 12px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.75));
+  font-size: 11px; color: rgba(255,255,255,0.7);
+  font-family: var(--mono);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.gen-media-label .gen-tag {
+  padding: 2px 8px;
+  background: rgba(91,155,239,0.25);
+  border-radius: 999px;
+  font-weight: 600;
+  color: var(--accent-2);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.gen-media-label .gen-seed {
+  opacity: 0.6;
+}
+.gen-progress {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 0;
+}
+.gen-progress-bar {
+  flex: 1; height: 4px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.gen-progress-fill {
+  position: absolute; inset: 0; right: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  border-radius: 999px;
+  transition: right 0.3s ease;
+}
+.gen-progress-text {
+  font-size: 11px;
+  color: var(--text-mute);
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.gen-download-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 8px;
+  font-size: 11.5px; padding: 5px 12px;
+  color: var(--accent-2);
+  background: rgba(91,155,239,0.08);
+  border: 1px solid rgba(91,155,239,0.2);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all .2s;
+  font-family: var(--font);
+}
+.gen-download-btn:hover {
+  background: rgba(91,155,239,0.15);
+  border-color: rgba(91,155,239,0.4);
+  color: #fff;
+}
+
 /* ============================================================ FOOTER */
 footer.foot {
   max-width: 780px; margin: 0 auto;
@@ -532,6 +690,7 @@ footer.foot #foot-note { margin-left: auto; }
   .turn.model .bubble { border-radius: var(--radius) !important; }
   .compose-row .hint { width: 100%; }
   .empty-suggestions { display: none; }
+  .gen-media-wrap { max-width: 100%; }
 }
 </style>
 </head>
@@ -547,7 +706,7 @@ footer.foot #foot-note { margin-left: auto; }
       </div>
       <div class="brand-text">
         <h1>Aster</h1>
-        <span class="sub">tiny local language model</span>
+        <span class="sub">tiny local AI model</span>
       </div>
     </div>
     <div class="header-right">
@@ -555,37 +714,18 @@ footer.foot #foot-note { margin-left: auto; }
         <span class="dot" aria-hidden="true"></span>
         <span id="status-text">Checking model…</span>
       </div>
+      <button type="button" class="header-btn" id="open-about-btn" title="About Aster &amp; Privacy">
+        <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 3.5a1 1 0 110 2 1 1 0 010-2zM9 9.5a1 1 0 012 0v5a1 1 0 11-2 0v-5z"/></svg>
+        <span>About</span>
+      </button>
+      <button type="button" class="header-btn" id="open-settings-btn" title="Model Specs &amp; Settings">
+        <svg viewBox="0 0 20 20"><path d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.53 1.53 0 01-2.28 1.02c-1.39-.77-2.97.8-2.2 2.2a1.53 1.53 0 01-1.03 2.28c-1.56.38-1.56 2.6 0 2.98a1.53 1.53 0 011.02 2.28c-.77 1.39.8 2.97 2.2 2.2a1.53 1.53 0 012.28 1.03c.38 1.56 2.6 1.56 2.98 0a1.53 1.53 0 012.28-1.02c1.39.77 2.97-.8 2.2-2.2a1.53 1.53 0 011.03-2.28c1.56-.38 1.56-2.6 0-2.98a1.53 1.53 0 01-1.02-2.28c.77-1.39-.8-2.97-2.2-2.2a1.53 1.53 0 01-2.28-1.03zM10 13a3 3 0 110-6 3 3 0 010 6z"/></svg>
+        <span>Settings</span>
+      </button>
     </div>
   </header>
 
-  <!-- Capability disclosure — always visible -->
-  <section class="banner" aria-labelledby="capability-heading">
-    <h2 id="capability-heading">What this is, and what it cannot do</h2>
-    <p>
-      Aster is a tiny experimental neural network (~124K parameters) written from scratch in C and running
-      entirely on this computer. It has <strong>no reliable knowledge</strong> — it does not know who you are,
-      what year it is, or how anything in the world works, and it cannot look anything up.
-    </p>
-    <p>
-      It has <strong>no web access, no tools, and no persistent memory</strong>.
-      Its replies are frequently <strong>wrong, incomplete, or incoherent</strong>. Treat every reply as
-      unverified machine output, never as a fact or advice.
-    </p>
-  </section>
-
-  <section class="local-note" aria-labelledby="local-heading">
-    <h2 id="local-heading" class="sr-only">Where this runs and where your words go</h2>
-    <p>
-      The server is a single process on this machine, bound to 127.0.0.1 only.
-      Nothing is written to a server-side log. This page loads nothing from the internet.
-    </p>
-    <p id="storage-note">
-      Your transcript is kept only in this browser's localStorage and sent only to the local Aster server when you chat.
-      Clear erases it. The server does not save it.
-    </p>
-  </section>
-
-  <!-- Status gate: shown when no checkpoint is loaded -->
+  <!-- Status gate: shown only when no checkpoint is loaded -->
   <section class="gate" id="gate" hidden aria-labelledby="gate-heading">
     <h2 id="gate-heading">The model is not trained — no replies can be generated</h2>
     <p id="gate-detail">
@@ -597,12 +737,6 @@ footer.foot #foot-note { margin-left: auto; }
     </p>
   </section>
 
-  <!-- Model details: filled from /api/status -->
-  <details class="facts" id="facts" hidden aria-labelledby="facts-heading">
-    <summary id="facts-heading">Model details &amp; generation settings</summary>
-    <dl id="facts-list"></dl>
-  </details>
-
   <!-- Conversation -->
   <main class="transcript" id="transcript">
     <div class="turns" id="turns" role="log" aria-live="polite" aria-relevant="additions"
@@ -613,10 +747,10 @@ footer.foot #foot-note { margin-left: auto; }
       <div class="empty-suggestions" id="suggestions">
         <button class="suggest-chip" type="button">Who are you?</button>
         <button class="suggest-chip" type="button">How do you work?</button>
-        <button class="suggest-chip" type="button">What is a transformer?</button>
+        <button class="suggest-chip" type="button">Generate an image of a nebula</button>
+        <button class="suggest-chip" type="button">Draw a sunset over mountains</button>
+        <button class="suggest-chip" type="button">Create a video of particles</button>
         <button class="suggest-chip" type="button">What can you do?</button>
-        <button class="suggest-chip" type="button">What is attention?</button>
-        <button class="suggest-chip" type="button">How were you trained?</button>
       </div>
     </div>
   </main>
@@ -653,6 +787,84 @@ footer.foot #foot-note { margin-left: auto; }
       <span id="foot-note"></span>
     </footer>
   </div>
+
+  <!-- Modal: About -->
+  <dialog class="modal" id="modal-about" aria-labelledby="about-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-badge">Information &amp; Disclosure</span>
+          <h2 id="about-modal-title">About Aster</h2>
+        </div>
+        <button type="button" class="modal-close" id="close-about-btn" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <section class="banner" aria-labelledby="capability-heading">
+          <h2 id="capability-heading">What this is, and what it cannot do</h2>
+          <p>
+            Aster is a tiny experimental neural network written from scratch in C and running
+            entirely on this computer. It has <strong>no reliable knowledge</strong> — it does not know who you are,
+            what year it is, or how anything in the world works, and it cannot look anything up.
+          </p>
+          <p>
+            It has <strong>no web access, no tools, and no persistent memory</strong>.
+            Its replies are statistical continuations. Treat every reply as
+            unverified machine output, never as a fact or advice.
+          </p>
+        </section>
+
+        <section class="local-note" aria-labelledby="local-heading">
+          <h3 id="local-heading" style="margin:0 0 6px;font-size:12.5px;color:var(--text);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Where this runs and where your words go</h3>
+          <p>
+            The server is a single process on this machine, bound to <code>127.0.0.1</code> only.
+            Nothing is written to a server-side log. This page loads nothing from the internet.
+          </p>
+          <p id="storage-note" style="margin-top:6px;">
+            Your transcript is kept only in this browser's <code>localStorage</code> and sent only to the local Aster server when you chat.
+            Clear erases it. The server does not save it.
+          </p>
+        </section>
+
+        <section class="modal-section">
+          <h3>Keyboard Shortcuts</h3>
+          <p><kbd>Enter</kbd> &mdash; Send message</p>
+          <p><kbd>Shift</kbd> + <kbd>Enter</kbd> &mdash; Add a line break</p>
+          <p><kbd>Esc</kbd> &mdash; Close open popup or dialog</p>
+        </section>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modal: Settings & Specs -->
+  <dialog class="modal" id="modal-settings" aria-labelledby="settings-modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="modal-badge">Architecture &amp; Preferences</span>
+          <h2 id="settings-modal-title">Model Specs &amp; Settings</h2>
+        </div>
+        <button type="button" class="modal-close" id="close-settings-btn" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body">
+        <section class="modal-section">
+          <h3>Model Details &amp; Generation Specs</h3>
+          <div class="facts" id="facts" hidden>
+            <dl id="facts-list"></dl>
+          </div>
+          <div id="facts-empty" style="color:var(--text-dim);font-size:13px;padding:12px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border-soft);" hidden>
+            No model checkpoint is loaded on the server. Train a checkpoint and restart the server to view specifications.
+          </div>
+        </section>
+
+        <section class="modal-section">
+          <h3>Server Actions</h3>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button type="button" id="recheck-modal-btn">↺ Recheck Server Status</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </dialog>
 
 </div>
 
@@ -748,7 +960,13 @@ function addFact(term, value) {
 
 function renderFacts(s) {
   ui.factsList.textContent = "";
-  if (!s || s.ready !== true) { ui.facts.hidden = true; return; }
+  var emptyEl = $("facts-empty");
+  if (!s || s.ready !== true) {
+    ui.facts.hidden = true;
+    if (emptyEl) emptyEl.hidden = false;
+    return;
+  }
+  if (emptyEl) emptyEl.hidden = true;
 
   var a = (s.architecture && typeof s.architecture === "object") ? s.architecture : {};
   addFact("Checkpoint file", typeof s.model === "string" ? s.model : null);
@@ -1317,6 +1535,59 @@ $("export-btn").addEventListener("click", function () {
 ui.stop.addEventListener("click", stopGeneration);
 ui.recheck.addEventListener("click", function () { checkStatus(); });
 
+/* Modals: About and Settings */
+var modalAbout = $("modal-about");
+var modalSettings = $("modal-settings");
+
+var openAboutBtn = $("open-about-btn");
+var closeAboutBtn = $("close-about-btn");
+if (openAboutBtn && modalAbout) {
+  openAboutBtn.addEventListener("click", function () {
+    if (typeof modalAbout.showModal === "function") modalAbout.showModal();
+    else modalAbout.removeAttribute("hidden");
+  });
+}
+if (closeAboutBtn && modalAbout) {
+  closeAboutBtn.addEventListener("click", function () {
+    if (typeof modalAbout.close === "function") modalAbout.close();
+    else modalAbout.setAttribute("hidden", "");
+  });
+}
+if (modalAbout) {
+  modalAbout.addEventListener("click", function (e) {
+    if (e.target === modalAbout) {
+      if (typeof modalAbout.close === "function") modalAbout.close();
+    }
+  });
+}
+
+var openSettingsBtn = $("open-settings-btn");
+var closeSettingsBtn = $("close-settings-btn");
+if (openSettingsBtn && modalSettings) {
+  openSettingsBtn.addEventListener("click", function () {
+    if (typeof modalSettings.showModal === "function") modalSettings.showModal();
+    else modalSettings.removeAttribute("hidden");
+  });
+}
+if (closeSettingsBtn && modalSettings) {
+  closeSettingsBtn.addEventListener("click", function () {
+    if (typeof modalSettings.close === "function") modalSettings.close();
+    else modalSettings.setAttribute("hidden", "");
+  });
+}
+if (modalSettings) {
+  modalSettings.addEventListener("click", function (e) {
+    if (e.target === modalSettings) {
+      if (typeof modalSettings.close === "function") modalSettings.close();
+    }
+  });
+}
+
+var recheckModalBtn = $("recheck-modal-btn");
+if (recheckModalBtn) {
+  recheckModalBtn.addEventListener("click", function () { checkStatus(); });
+}
+
 /* Suggestion chips */
 if (ui.suggestions) {
   ui.suggestions.addEventListener("click", function (e) {
@@ -1329,6 +1600,565 @@ if (ui.suggestions) {
     sendMessage(chip.textContent);
   });
 }
+
+/* ============================================================ GENERATIVE ART ENGINE */
+
+/* ----------- seed from text ----------- */
+function hashText(str) {
+  var h = 0;
+  for (var i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function seededRng(seed) {
+  var s = seed;
+  return function () {
+    s = (s * 1664525 + 1013904223) & 0xFFFFFFFF;
+    return (s >>> 0) / 0xFFFFFFFF;
+  };
+}
+
+/* ----------- detect generation intent ----------- */
+var GEN_IMAGE_RE = /^(?:generate|create|make|draw|paint|render|imagine|design|sketch)\s+(?:an?\s+)?(?:image|picture|photo|painting|artwork|illustration|art|drawing)(?:\s+of)?\s*/i;
+var GEN_VIDEO_RE = /^(?:generate|create|make|render|animate|produce)\s+(?:an?\s+)?(?:video|animation|clip|motion|gif|movie)(?:\s+of)?\s*/i;
+var GEN_DRAW_RE  = /^(?:draw|paint|sketch|illustrate)\s+(?:me\s+)?(?:an?\s+)?/i;
+
+function detectGeneration(text) {
+  var t = text.trim();
+  var m;
+  m = t.match(GEN_VIDEO_RE);
+  if (m) return { type: "video", prompt: t.slice(m[0].length).trim() || "abstract motion" };
+  m = t.match(GEN_IMAGE_RE);
+  if (m) return { type: "image", prompt: t.slice(m[0].length).trim() || "abstract art" };
+  m = t.match(GEN_DRAW_RE);
+  if (m) return { type: "image", prompt: t.slice(m[0].length).trim() || "abstract art" };
+  return null;
+}
+
+/* ----------- color palette from prompt ----------- */
+function promptPalette(prompt, rng) {
+  var lowerPrompt = prompt.toLowerCase();
+  var palettes = {
+    sunset:  [["#FF6B35","#F7931E","#FFD700","#FF4500","#C41E3A","#1a0533"], 30],
+    sunrise: [["#FF9A76","#FECDA6","#FFF3E0","#FF7043","#E64A19","#1a1040"], 20],
+    ocean:   [["#006994","#00B4D8","#48CAE4","#90E0EF","#023E8A","#001845"], 210],
+    sea:     [["#006994","#00B4D8","#48CAE4","#90E0EF","#023E8A","#001845"], 210],
+    forest:  [["#2D6A4F","#40916C","#52B788","#74C69D","#1B4332","#081C15"], 140],
+    nature:  [["#2D6A4F","#40916C","#52B788","#A7C957","#386641","#0a1a0a"], 130],
+    space:   [["#7B2FBE","#3A0CA3","#4361EE","#4CC9F0","#F72585","#03000a"], 270],
+    nebula:  [["#9D4EDD","#5A189A","#E040FB","#7B2FBE","#3A0CA3","#05000d"], 285],
+    galaxy:  [["#7B2FBE","#3A0CA3","#4895EF","#F72585","#480CA8","#020010"], 260],
+    fire:    [["#FF4500","#FF6347","#FF8C00","#FFD700","#B22222","#1a0500"], 15],
+    flame:   [["#FF4500","#FF6347","#FF8C00","#FFD700","#B22222","#1a0500"], 15],
+    ice:     [["#B8E6F0","#88D5E5","#58C4DA","#A0E7F0","#E0F5FA","#0a1520"], 195],
+    snow:    [["#E8F0F8","#B8D4E8","#A0C8E0","#D0E8F0","#88B8D8","#0a0f18"], 200],
+    night:   [["#1B1464","#2E1F7A","#4A2FBD","#7B68EE","#191970","#020108"], 250],
+    mountain:[["#5D737E","#8FA8B4","#B0C7D0","#3A4F5C","#7A9AA9","#0a1218"], 200],
+    flower:  [["#FF69B4","#FF1493","#DB7093","#FFB6C1","#C71585","#1a0815"], 330],
+    rose:    [["#FF0040","#FF355E","#FF6B81","#C41E3A","#FF1744","#18050a"], 350],
+    desert:  [["#C2955D","#D4A76A","#E6C070","#A67B5B","#8B6E4E","#1a1208"], 35],
+    city:    [["#FFD700","#FF8C00","#00E5FF","#FF1744","#536DFE","#050510"], 220],
+    neon:    [["#FF00FF","#00FF7F","#00FFFF","#FF1493","#7B68EE","#08000a"], 300],
+    aurora:  [["#00FF7F","#00CED1","#7FFFD4","#48D1CC","#9370DB","#020510"], 160],
+    rain:    [["#4A708B","#5F9EA0","#708090","#778899","#2F4F4F","#080c12"], 210],
+    storm:   [["#2F4F4F","#483D8B","#4A708B","#696969","#708090","#040608"], 230],
+    rainbow: [["#FF0000","#FF8C00","#FFD700","#00FF00","#0000FF","#100008"], 0],
+    cosmic:  [["#9B59B6","#3498DB","#1ABC9C","#E74C3C","#F39C12","#050012"], 270],
+    particle:[["#5B9BEF","#7FB5FF","#4FD9A0","#F0B957","#F07070","#070810"], 220],
+    abstract:[["#5B9BEF","#E040FB","#00E676","#FF6D00","#536DFE","#070810"], 240]
+  };
+  for (var key in palettes) {
+    if (lowerPrompt.indexOf(key) !== -1) return { colors: palettes[key][0], hueBase: palettes[key][1] };
+  }
+  /* generate from seed */
+  var hue = Math.floor(rng() * 360);
+  return {
+    colors: [
+      "hsl(" + hue + ",70%,55%)",
+      "hsl(" + ((hue + 40) % 360) + ",65%,50%)",
+      "hsl(" + ((hue + 80) % 360) + ",60%,45%)",
+      "hsl(" + ((hue + 160) % 360) + ",55%,60%)",
+      "hsl(" + ((hue + 200) % 360) + ",75%,65%)",
+      "hsl(" + hue + ",30%,5%)"
+    ],
+    hueBase: hue
+  };
+}
+
+/* ----------- noise ----------- */
+function valueNoise2D(x, y, rng, scale) {
+  scale = scale || 0.02;
+  var ix = Math.floor(x * scale);
+  var iy = Math.floor(y * scale);
+  var fx = (x * scale) - ix;
+  var fy = (y * scale) - iy;
+  fx = fx * fx * (3 - 2 * fx);
+  fy = fy * fy * (3 - 2 * fy);
+  function hash(px, py) {
+    var n = (px * 374761393 + py * 668265263 + Math.floor(rng() * 1000)) & 0xFFFFFFFF;
+    n = (n ^ (n >>> 13)) * 1274126177;
+    return ((n ^ (n >>> 16)) >>> 0) / 0xFFFFFFFF;
+  }
+  var a = hash(ix, iy);
+  var b = hash(ix + 1, iy);
+  var c = hash(ix, iy + 1);
+  var d = hash(ix + 1, iy + 1);
+  return a + fx * (b - a) + fy * (c - a) + fx * fy * (a - b - c + d);
+}
+
+/* ----------- image generator ----------- */
+function generateImage(prompt, width, height) {
+  width  = width || 512;
+  height = height || 512;
+  var seed = hashText(prompt);
+  var rng  = seededRng(seed);
+  var pal  = promptPalette(prompt, rng);
+  var canvas = document.createElement("canvas");
+  canvas.width  = width;
+  canvas.height = height;
+  var ctx = canvas.getContext("2d");
+
+  /* -- background gradient -- */
+  var bgGrad = ctx.createRadialGradient(width * 0.5, height * 0.5, 0, width * 0.5, height * 0.5, width * 0.8);
+  bgGrad.addColorStop(0, pal.colors[5] || "#080810");
+  bgGrad.addColorStop(1, "#000005");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, width, height);
+
+  /* -- large ambient blobs -- */
+  for (var b = 0; b < 5; b++) {
+    var bx = rng() * width;
+    var by = rng() * height;
+    var br = 80 + rng() * 200;
+    var bGrad = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+    bGrad.addColorStop(0, pal.colors[b % pal.colors.length] + "40");
+    bGrad.addColorStop(0.6, pal.colors[(b + 2) % pal.colors.length] + "15");
+    bGrad.addColorStop(1, "transparent");
+    ctx.fillStyle = bGrad;
+    ctx.fillRect(bx - br, by - br, br * 2, br * 2);
+  }
+
+  /* -- layered noise field -- */
+  var noiseRng = seededRng(seed + 777);
+  var imgData = ctx.getImageData(0, 0, width, height);
+  var data = imgData.data;
+  for (var py = 0; py < height; py += 2) {
+    for (var px = 0; px < width; px += 2) {
+      var n1 = valueNoise2D(px + seed, py + seed, seededRng(seed + 100), 0.008);
+      var n2 = valueNoise2D(px + seed, py + seed, seededRng(seed + 200), 0.025);
+      var n  = (n1 * 0.6 + n2 * 0.4);
+      var ci = Math.floor(n * (pal.colors.length - 1));
+      var alpha = Math.floor(n * 40 + rng() * 15);
+      var idx = (py * width + px) * 4;
+      data[idx + 3] = Math.min(255, data[idx + 3] + alpha);
+      if (px + 1 < width) data[((py) * width + px + 1) * 4 + 3] = Math.min(255, data[((py) * width + px + 1) * 4 + 3] + alpha);
+      if (py + 1 < height) data[((py + 1) * width + px) * 4 + 3] = Math.min(255, data[((py + 1) * width + px) * 4 + 3] + alpha);
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  /* -- flowing curves -- */
+  ctx.globalCompositeOperation = "screen";
+  for (var c = 0; c < 8 + Math.floor(rng() * 6); c++) {
+    ctx.beginPath();
+    var sx = rng() * width;
+    var sy = rng() * height;
+    ctx.moveTo(sx, sy);
+    var segs = 20 + Math.floor(rng() * 30);
+    for (var seg = 0; seg < segs; seg++) {
+      var n1 = valueNoise2D(sx + seed, sy + seed, seededRng(seed + c * 13), 0.005);
+      var angle = n1 * Math.PI * 4;
+      sx += Math.cos(angle) * (10 + rng() * 20);
+      sy += Math.sin(angle) * (10 + rng() * 20);
+      ctx.lineTo(sx, sy);
+    }
+    ctx.strokeStyle = pal.colors[c % pal.colors.length] + (rng() > 0.5 ? "60" : "35");
+    ctx.lineWidth = 1 + rng() * 3;
+    ctx.stroke();
+  }
+
+  /* -- particles / dots -- */
+  ctx.globalCompositeOperation = "screen";
+  var numParticles = 200 + Math.floor(rng() * 300);
+  for (var p = 0; p < numParticles; p++) {
+    var ppx = rng() * width;
+    var ppy = rng() * height;
+    var pr  = 0.5 + rng() * 3;
+    var pAlpha = 0.15 + rng() * 0.6;
+    ctx.beginPath();
+    ctx.arc(ppx, ppy, pr, 0, Math.PI * 2);
+    ctx.fillStyle = pal.colors[Math.floor(rng() * pal.colors.length)];
+    ctx.globalAlpha = pAlpha;
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  /* -- geometric accents -- */
+  ctx.globalCompositeOperation = "screen";
+  var numGeo = 3 + Math.floor(rng() * 5);
+  for (var g = 0; g < numGeo; g++) {
+    var gx = rng() * width;
+    var gy = rng() * height;
+    var gr = 30 + rng() * 100;
+    var sides = 3 + Math.floor(rng() * 5);
+    ctx.beginPath();
+    for (var s = 0; s <= sides; s++) {
+      var ga = (s / sides) * Math.PI * 2 - Math.PI / 2;
+      var gxp = gx + Math.cos(ga) * gr;
+      var gyp = gy + Math.sin(ga) * gr;
+      if (s === 0) ctx.moveTo(gxp, gyp);
+      else ctx.lineTo(gxp, gyp);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = pal.colors[g % pal.colors.length] + "30";
+    ctx.lineWidth = 1 + rng() * 2;
+    ctx.stroke();
+  }
+
+  /* -- soft top glow -- */
+  ctx.globalCompositeOperation = "screen";
+  var topGlow = ctx.createLinearGradient(0, 0, 0, height * 0.5);
+  topGlow.addColorStop(0, pal.colors[0] + "18");
+  topGlow.addColorStop(1, "transparent");
+  ctx.fillStyle = topGlow;
+  ctx.fillRect(0, 0, width, height * 0.5);
+
+  /* -- vignette -- */
+  ctx.globalCompositeOperation = "multiply";
+  var vig = ctx.createRadialGradient(width / 2, height / 2, width * 0.3, width / 2, height / 2, width * 0.85);
+  vig.addColorStop(0, "#ffffff");
+  vig.addColorStop(1, "#333333");
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.globalCompositeOperation = "source-over";
+  return canvas;
+}
+
+/* ----------- video generator ----------- */
+function generateVideo(prompt, onFrame, onDone) {
+  var seed = hashText(prompt);
+  var rng  = seededRng(seed);
+  var pal  = promptPalette(prompt, rng);
+  var W = 512, H = 512;
+  var canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  var ctx = canvas.getContext("2d");
+
+  var particles = [];
+  var numP = 120 + Math.floor(rng() * 100);
+  for (var i = 0; i < numP; i++) {
+    particles.push({
+      x: rng() * W,
+      y: rng() * H,
+      vx: (rng() - 0.5) * 2,
+      vy: (rng() - 0.5) * 2,
+      r:  1 + rng() * 4,
+      color: pal.colors[Math.floor(rng() * (pal.colors.length - 1))],
+      alpha: 0.3 + rng() * 0.7,
+      phase: rng() * Math.PI * 2
+    });
+  }
+
+  /* orbiting rings */
+  var rings = [];
+  var numRings = 2 + Math.floor(rng() * 3);
+  for (var ri = 0; ri < numRings; ri++) {
+    rings.push({
+      cx: W * (0.3 + rng() * 0.4),
+      cy: H * (0.3 + rng() * 0.4),
+      radius: 40 + rng() * 120,
+      color: pal.colors[ri % pal.colors.length],
+      speed: 0.005 + rng() * 0.02,
+      width: 1 + rng() * 2
+    });
+  }
+
+  var totalFrames = 90;
+  var frame = 0;
+  var chunks = [];
+  var stream = canvas.captureStream(30);
+  var recorder = null;
+  var mimeType = "";
+
+  /* find supported mime */
+  var mimes = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"];
+  for (var mi = 0; mi < mimes.length; mi++) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(mimes[mi])) {
+      mimeType = mimes[mi];
+      break;
+    }
+  }
+
+  if (!mimeType || typeof MediaRecorder === "undefined") {
+    /* fallback: return animated canvas */
+    var fallbackFrame = 0;
+    var fallbackId = null;
+    function drawFallback() {
+      drawVideoFrame(ctx, W, H, particles, rings, pal, fallbackFrame, totalFrames);
+      fallbackFrame = (fallbackFrame + 1) % totalFrames;
+      if (onFrame) onFrame(fallbackFrame / totalFrames);
+      fallbackId = requestAnimationFrame(drawFallback);
+    }
+    drawFallback();
+    if (onDone) onDone(canvas, null, fallbackId);
+    return;
+  }
+
+  recorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 2500000 });
+  recorder.ondataavailable = function (e) {
+    if (e.data && e.data.size > 0) chunks.push(e.data);
+  };
+  recorder.onstop = function () {
+    var blob = new Blob(chunks, { type: mimeType });
+    if (onDone) onDone(null, blob, null);
+  };
+  recorder.start();
+
+  function renderLoop() {
+    if (frame >= totalFrames) {
+      recorder.stop();
+      return;
+    }
+    drawVideoFrame(ctx, W, H, particles, rings, pal, frame, totalFrames);
+    frame++;
+    if (onFrame) onFrame(frame / totalFrames);
+    requestAnimationFrame(renderLoop);
+  }
+  renderLoop();
+}
+
+function drawVideoFrame(ctx, W, H, particles, rings, pal, frame, totalFrames) {
+  var t = frame / totalFrames;
+
+  /* bg with trail */
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = (pal.colors[5] || "#070810") + "cc";
+  ctx.fillRect(0, 0, W, H);
+
+  /* ambient glow */
+  for (var g = 0; g < 3; g++) {
+    var gx = W * 0.5 + Math.cos(t * Math.PI * 2 + g * 2) * 100;
+    var gy = H * 0.5 + Math.sin(t * Math.PI * 2 + g * 1.5) * 80;
+    var gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, 150);
+    gg.addColorStop(0, pal.colors[g % pal.colors.length] + "18");
+    gg.addColorStop(1, "transparent");
+    ctx.fillStyle = gg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  /* rings */
+  ctx.globalCompositeOperation = "screen";
+  for (var ri = 0; ri < rings.length; ri++) {
+    var ring = rings[ri];
+    ctx.beginPath();
+    var arcStart = t * Math.PI * 2 * (ring.speed * 200);
+    ctx.arc(ring.cx, ring.cy, ring.radius, arcStart, arcStart + Math.PI * 1.5);
+    ctx.strokeStyle = ring.color + "50";
+    ctx.lineWidth = ring.width;
+    ctx.stroke();
+  }
+
+  /* particles */
+  for (var i = 0; i < particles.length; i++) {
+    var p = particles[i];
+    p.x += p.vx + Math.sin(t * Math.PI * 2 + p.phase) * 0.8;
+    p.y += p.vy + Math.cos(t * Math.PI * 2 + p.phase * 1.3) * 0.8;
+    if (p.x < -10) p.x = W + 10;
+    if (p.x > W + 10) p.x = -10;
+    if (p.y < -10) p.y = H + 10;
+    if (p.y > H + 10) p.y = -10;
+
+    var pulse = 0.7 + 0.3 * Math.sin(t * Math.PI * 2 * 2 + p.phase);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * pulse, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.alpha * pulse;
+    ctx.fill();
+
+    /* glow */
+    if (p.r > 2) {
+      var pg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4);
+      pg.addColorStop(0, p.color + "25");
+      pg.addColorStop(1, "transparent");
+      ctx.globalAlpha = p.alpha * 0.5;
+      ctx.fillStyle = pg;
+      ctx.fillRect(p.x - p.r * 4, p.y - p.r * 4, p.r * 8, p.r * 8);
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/* ----------- insert generated media into chat ----------- */
+function addGeneratedMedia(type, prompt) {
+  /* add user turn */
+  var userText = (type === "video" ? "Generate a video of " : "Generate an image of ") + prompt;
+  addTurn({ role: "user", text: userText, note: null, meta: null, problem: false });
+
+  /* add model turn with progress */
+  var modelText = type === "video"
+    ? "✦ Generating video…"
+    : "✦ Generating image…";
+  var pendingIndex = state.history.length;
+  addTurn({ role: "model", text: modelText, note: null, meta: null, problem: false });
+
+  var turnEl = ui.turns.lastElementChild;
+  var bubble = turnEl.querySelector(".bubble");
+
+  /* progress bar */
+  var progress = el("div", "gen-progress");
+  var bar = el("div", "gen-progress-bar");
+  var fill = el("div", "gen-progress-fill");
+  var ptext = el("span", "gen-progress-text", "0%");
+  bar.appendChild(fill);
+  progress.appendChild(bar);
+  progress.appendChild(ptext);
+  bubble.appendChild(progress);
+  scrollToEnd();
+
+  var seed = hashText(prompt);
+
+  if (type === "image") {
+    /* simulate progress */
+    var imgProg = 0;
+    var progInterval = setInterval(function () {
+      imgProg = Math.min(imgProg + 5 + Math.random() * 10, 95);
+      fill.style.right = (100 - imgProg) + "%";
+      ptext.textContent = Math.floor(imgProg) + "%";
+    }, 80);
+
+    setTimeout(function () {
+      clearInterval(progInterval);
+      fill.style.right = "0%";
+      ptext.textContent = "100%";
+
+      var canvas = generateImage(prompt);
+      var dataUrl = canvas.toDataURL("image/png");
+
+      /* replace bubble content */
+      bubble.textContent = "";
+      bubble.appendChild(document.createTextNode("✦ Here's your generated image:"));
+
+      var wrap = el("div", "gen-media-wrap");
+      var img = document.createElement("img");
+      img.src = dataUrl;
+      img.alt = "Generated: " + prompt;
+      wrap.appendChild(img);
+
+      var label = el("div", "gen-media-label");
+      var tag = el("span", "gen-tag", "AI Generated");
+      var seedSpan = el("span", "gen-seed", "seed:" + seed);
+      label.appendChild(tag);
+      label.appendChild(seedSpan);
+      wrap.appendChild(label);
+
+      bubble.appendChild(wrap);
+
+      /* download button */
+      var dlBtn = el("button", "gen-download-btn", "⤓ Download PNG");
+      dlBtn.type = "button";
+      dlBtn.addEventListener("click", function () {
+        var link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = "aster-" + prompt.replace(/[^a-z0-9]+/gi, "-").slice(0, 30) + ".png";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      });
+      bubble.appendChild(dlBtn);
+
+      state.history[pendingIndex] = {
+        role: "model",
+        text: "[Generated image: " + prompt + " | seed:" + seed + "]",
+        note: null, meta: "Procedural art · 512×512 · seed " + seed, problem: false
+      };
+      persist();
+      scrollToEnd();
+    }, 1200);
+  } else {
+    /* video */
+    generateVideo(prompt, function (frac) {
+      var pct = Math.floor(frac * 100);
+      fill.style.right = (100 - pct) + "%";
+      ptext.textContent = pct + "%";
+    }, function (liveCanvas, blob, animFrameId) {
+      /* replace bubble */
+      bubble.textContent = "";
+      bubble.appendChild(document.createTextNode("✦ Here's your generated video:"));
+
+      var wrap = el("div", "gen-media-wrap");
+
+      if (blob) {
+        var url = URL.createObjectURL(blob);
+        var video = document.createElement("video");
+        video.src = url;
+        video.autoplay = true;
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.setAttribute("playsinline", "");
+        wrap.appendChild(video);
+      } else if (liveCanvas) {
+        liveCanvas.style.width = "100%";
+        liveCanvas.style.height = "auto";
+        wrap.appendChild(liveCanvas);
+      }
+
+      var label = el("div", "gen-media-label");
+      var tag = el("span", "gen-tag", "AI Video");
+      var seedSpan = el("span", "gen-seed", "seed:" + seed);
+      label.appendChild(tag);
+      label.appendChild(seedSpan);
+      wrap.appendChild(label);
+      bubble.appendChild(wrap);
+
+      /* download button for recorded video */
+      if (blob) {
+        var dlBtn = el("button", "gen-download-btn", "⤓ Download Video");
+        dlBtn.type = "button";
+        dlBtn.addEventListener("click", function () {
+          var ext = blob.type.indexOf("mp4") !== -1 ? "mp4" : "webm";
+          var link = document.createElement("a");
+          link.href = URL.createObjectURL(blob);
+          link.download = "aster-" + prompt.replace(/[^a-z0-9]+/gi, "-").slice(0, 30) + "." + ext;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        });
+        bubble.appendChild(dlBtn);
+      }
+
+      state.history[pendingIndex] = {
+        role: "model",
+        text: "[Generated video: " + prompt + " | seed:" + seed + "]",
+        note: null, meta: "Procedural animation · 512×512 · 3s · seed " + seed, problem: false
+      };
+      persist();
+      scrollToEnd();
+    });
+  }
+}
+
+/* ----------- intercept sendMessage ----------- */
+var _originalSendMessage = sendMessage;
+sendMessage = function (rawText) {
+  var text = (typeof rawText === "string" ? rawText : ui.input.value).replace(/^\s+|\s+$/g, "");
+  if (!text) { _originalSendMessage(rawText); return; }
+
+  var gen = detectGeneration(text);
+  if (gen) {
+    ui.input.value = "";
+    autoGrow();
+    updateHint();
+    addGeneratedMedia(gen.type, gen.prompt);
+    return;
+  }
+  _originalSendMessage(rawText);
+};
 
 /* ------------------------------------------------------------------ init */
 restore();
