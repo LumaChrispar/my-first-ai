@@ -14,6 +14,7 @@ typedef struct {
     int    max_new_tokens;
     float  temperature;
     int    top_k;
+    float  repetition_penalty;
     /* Text between the SYSTEM and USER markers. Must match the system text
      * the model was trained with, or be empty if the corpus had none. */
     const char *system;

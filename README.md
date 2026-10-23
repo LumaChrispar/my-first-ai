@@ -14,8 +14,8 @@ trained on **332 short conversations**. It is not a capable assistant.
 
 - It has **no reliable knowledge**. Most factual claims it makes will be wrong.
 - It has **no web access**, **no tools**, and **no persistent memory**.
-- It **cannot see earlier turns** in a conversation and forgets each reply as
-  soon as it is sent.
+- The browser can include **one previous exchange**, only when it fits in the
+  context. This does not guarantee that the model understands or remembers it.
 - Its context is **128 tokens** — about 470 bytes of English on the demo corpus,
   so roughly 70 words. Keep messages short.
 - Its **output is broken at the word level** much of the time. A sub-word
@@ -95,7 +95,7 @@ bug produces a plausible-looking loss *and* a plausible-looking generation:
   measurement in two units, and `exp()` gets silently wrong numbers while
   still picking the same checkpoint
 
-A passing run ends with `self-test passed` and exit code 0. There are **57
+A passing run ends with `self-test passed` and exit code 0. There are **68
 checks**.
 
 ## Vocabulary
@@ -135,12 +135,15 @@ depends on a separate file staying in sync.
     --out models/aster-small.bin --seed 1234
 ```
 
-About 9 minutes on an ordinary processor. Real output, from a real run on the
-bundled demo corpus (seed 1234, `--vocab tmp/demo.vocab` — see
-[BUILD_PROGRESS.md](BUILD_PROGRESS.md) for the exact commands):
+About 9 minutes on an ordinary processor. This is the exact command above,
+producing the checkpoint that ships in `models/`. Real output, unedited:
 
 ```
-  vocabulary: demo.vocab (885 merges, 1146 tokens, 3.68 bytes/token)
+  vocabulary: learned from 665 span(s), 24918 bytes of training text
+    4920 words seen, 4821 distinct kept, 885 merges, 1146 tokens, 3.68 bytes/token
+warning: asked for 1024 merges but the corpus only supported 885. A small corpus
+  runs out of frequent pairs; this is not an error.
+  wrote models/aster-small.bin.vocab
   parameters:  180992 (0.181 million), token embedding tied to the output head
   train split: 332 window(s), 8424 tokens, 45865 source bytes, 1 source(s)
   valid split: 68 window(s), 2100 tokens, 9737 source bytes, 1 source(s)
@@ -148,11 +151,19 @@ bundled demo corpus (seed 1234, `--vocab tmp/demo.vocab` — see
     untrained check: 7.0541 nats/token x 2.99 bytes/token = 2.3596 nats/byte / ln2 =
     3.4042 bits/byte; log2(vocab=1146) / 2.99 = 3.3994  [consistent]
   ...
-  finished 3000 step(s) in 532.6s
+  finished 3000 step(s) in 558.6s
   held-out loss was still rising at step 3000; reverting to the best
       held-out parameters from step 450
   held-out 7.0541 -> 4.8693 nats/token   3.4042 -> 2.3498 bits/byte: improved
+    check: 4.8693 nats/token x 2.99 bytes/token = 1.6288 nats/byte / ln2 = 2.3498
+           bits/byte (over 1239 scored tokens, 3704 bytes)
+  wrote models/aster-small.bin.meta.json
+  wrote checkpoint models/aster-small.bin
 ```
+
+That warning is expected and is not a failure: the 25 KB demo corpus runs out of
+frequent pairs before it runs out of merge budget. Whether a larger corpus
+reaches the full 1024 is untested here — see `data/README.md`.
 
 Note the `untrained check` line. An untrained model is uniform, so its
 bits/byte is not a free parameter — it is `log2(vocab) / bytes-per-token`, and
@@ -223,6 +234,23 @@ that runs on your own computer.
 
 ## Serve
 
+For a quick start on Windows, double-click `start.bat` or run `.\start.bat`.
+It uses the existing checkpoint, a 40-token reply limit to leave more space
+for chat context, and a repetition penalty of 1.1. Rebuild after source changes
+with `.\build.bat`.
+
+The page has a **Use previous exchange** checkbox, **Copy reply**, and
+**Export chat**. Model details are expandable. Context contains only the last
+complete exchange; the latest message takes priority, and the API reports
+`history_used` and explains when that exchange did not fit. There is no
+server-side conversation storage. Disable the checkbox for independent replies.
+
+Generation now retains the newest prompt tokens, bounds long system text, and
+keeps the actual best candidates under top-k sampling. Repetition penalties
+apply to generated reply tokens only, with `--repetition-penalty 1` restoring
+unpenalized sampling. These are generation changes; they do not change the
+checkpoint's held-out loss or give it new knowledge.
+
 ```powershell
 .\aster.exe serve --model models/aster-small.bin --port 8080
 ```
@@ -233,7 +261,7 @@ The page renders every message as **plain text** — model output is untrusted
 text and is never inserted as HTML. It shows the real model parameters and
 context size reported by the server, labels replies as unverified machine
 output, and tells you plainly that there is no web access, no tools, and no
-memory.
+persistent memory. Chat context can include one previous exchange when it fits.
 
 **If no checkpoint is loaded**, the page says so and disables the input, and the
 API returns `503 model_not_trained`:
@@ -273,6 +301,24 @@ Run `.\aster.exe help` for every flag.
 
 ## Model
 
+New training runs can change the architecture using `--layers`, `--width`,
+`--heads`, `--ff`, and `--context`. Width must be divisible by heads; changing
+width also sets the default feed-forward width to four times that value unless
+`--ff` is supplied. Checkpoints retain their own dimensions, so these flags do
+not expand an already trained checkpoint. For example, to train a larger
+candidate without replacing your current model:
+
+```powershell
+.\aster.exe train --mode chat --steps 600 --batch 8 `
+    --data data/demo_chat.jsonl --validation data/demo_valid.jsonl `
+    --layers 3 --width 128 --heads 4 --context 256 --block 128 `
+    --out models/aster-candidate.bin --seed 1234
+```
+
+Larger models need more CPU time, memory, and diverse training examples. Compare
+the candidate with the current checkpoint on the same held-out data before
+switching; larger dimensions alone do not establish better answers.
+
 | | |
 |---|---|
 | Architecture | decoder-only causal transformer, pre-LayerNorm |
@@ -311,8 +357,9 @@ network is 107 648 parameters at any vocabulary size. Going from 261 to the
 
 A small corpus runs out of frequent pairs before it runs out of merge budget.
 The bundled demo data (about 25 KB) supports 885 merges and 3.7 bytes per
-token, so its model is 180 992 parameters; a 15 000-conversation corpus reaches
-the full 1024. `aster vocab` reports which it got and warns when it fell short.
+token, so its model is 180 992 parameters. `aster vocab` reports which it got
+and warns when it fell short. A larger corpus may well reach the full 1024; that
+has not been measured, so it is not claimed.
 
 ### Two loss numbers, and which one to compare
 
@@ -353,6 +400,9 @@ src/
 tools/
   oasst2jsonl.c data prep: OpenAssistant (oasst1) export -> chat JSONL
                 NOT part of aster.exe, and it does not download anything
+  oassttrees2flat.awk  data prep: nested oasst1 trees -> flat records
+  oasst-redact.awk     data prep: strip email/IP/phone patterns from the
+                       result before it is trained on
 data/           training and validation corpora, with provenance
 models/         checkpoints (written by `train`)
 index.html      the browser page
@@ -363,6 +413,17 @@ BUILD_PROGRESS.md  what was built, what was run, and what the results were
 ```
 
 ## Data
+
+The user-requested Aviator experiment has its own numeric checkpoint,
+`models/aster-aviator.bin`, and [training report](data/aviator/README.md).
+It uses raw multipliers rather than leaked target-derived features. It is
+separate from the conversational model and does not establish future-round
+prediction. Use `generate --mode text` for this checkpoint.
+
+For larger plain-text corpora, `train` and `eval` accept `--stride N`. The
+default remains 1; `--stride 64 --block 64` uses separate windows and avoids
+rescoring each overlapping window. Keep the evaluation stride fixed when
+comparing runs.
 
 `data/` contains three files written by hand for this project — nothing was
 scraped, downloaded, or copied. Provenance, licence, format, and SHA-256 hashes
@@ -379,13 +440,20 @@ work, and no private conversations.
 chat JSONL. It is a separate tool, not part of `aster.exe`, and **it downloads
 nothing** — you fetch the dataset yourself, and this only reads a local file.
 
-```powershell
-gcc -std=c11 -O2 -Wall -Wextra -Isrc -o oasst2jsonl.exe `
+Download the **`.trees.`** export, not the `.messages.` one. The flat messages
+file has no `parent_message_id` in any of its 88 838 records, so every message
+looks like a root and the converter correctly refuses it. The trees file holds
+the same messages nested, and `tools/oassttrees2flat.awk` flattens them.
+
+```bash
+awk -f tools/oassttrees2flat.awk oasst_ready_trees.jsonl > oasst_flat.jsonl
+
+gcc -std=c11 -O2 -Wall -Wextra -Isrc -o oasst2jsonl.exe \
     tools/oasst2jsonl.c src/util.c src/jsonstr.c src/tokenizer.c
 
-.\oasst2jsonl.exe --in oasst.jsonl --lang en `
-    --out data/oasst_train.jsonl `
-    --valid-out data/oasst_valid.jsonl --valid-every 20 `
+./oasst2jsonl.exe --in oasst_flat.jsonl --lang en \
+    --out oasst_train.jsonl \
+    --valid-out oasst_valid.jsonl --valid-every 20 \
     --max-conversations 15000
 ```
 
@@ -397,14 +465,22 @@ conversation count and the SHA-256 of each file, so a run is reproducible from
 the log alone and a file that later changes is detectable.
 
 oasst1 is a *tree* and Aster's format is linear, so the converter keeps one
-reply per prompt and reports how many alternatives it discarded. Read the
-counts before training on the result, and read the file: it is other people's
-writing, and personal data should be assumed present.
+reply per prompt and reports how many alternatives it discarded. On the real
+`ready` export that is **10 417 alternative replies dropped** and **1 257 roots
+with no reply**, reducing 88 838 messages to 7 694 turns in 2 276 English
+conversations. Read the counts before training on the result.
+
+**Redact before training.** The corpus is other people's writing and it contains
+personal data — a scan found 11 email addresses, 27 long number runs and 6 IPv4
+addresses in the converted output. `tools/oasst-redact.awk` removes those
+patterns (and redacts rather than deletes, so one address does not cost a whole
+conversation), but it cannot find real names or anything else someone wrote
+about themselves. A human still has to read the file before it is published.
 
 Learn the vocabulary from the **training file only**:
 
 ```powershell
-.\aster.exe vocab --mode chat --data data/oasst_train.jsonl `
+.\aster.exe vocab --mode chat --data oasst_train.jsonl `
     --merges 1024 --out models/aster-small.vocab
 ```
 
@@ -432,8 +508,8 @@ layout, are in [`data/README.md`](data/README.md).
   pipeline works and can be read and checked.
 - **It has no knowledge.** 332 conversations do not contain the world's facts,
   and the sub-word tokenizer did not change that — it changed the *English*.
-- **It has no tools, no web access, and no memory**, and this version is not
-  going to grow them without being rewritten.
+- **It has no tools, no web access, and no persistent memory.** The browser can
+  send the previous exchange as context, but the model may not use it reliably.
 - **It repeats itself.** Given a long or unusual prompt it degenerates into
   `the the model model model`, which is a real output of the shipped
   checkpoint, not a worst case invented for the docs.

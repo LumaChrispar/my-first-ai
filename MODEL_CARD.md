@@ -172,8 +172,9 @@ backward pass, the loss mask, and generation are mutually consistent.
   There is no uncertainty signal. Its refusals ("No. I am not a doctor") are
   right, and it gives them because they are in the training data, not because it
   understood the question.
-- **It has no memory.** Every message is handled independently; it cannot see
-  earlier turns, and it forgets as soon as the response is sent.
+- **It has no persistent memory.** The browser can pass one previous exchange
+  when it fits in the context, using the training format's turn markers. That
+  is input context, not learning; reliable follow-up understanding is untested.
 - **It used to drop characters mid-word**, which is why the tokenizer is
   sub-word. That specific symptom is fixed. Nothing replaced it except a
   different way of being wrong.

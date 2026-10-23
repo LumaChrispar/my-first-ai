@@ -953,8 +953,13 @@ void gen_params_default(GenParams *g) {
     g->max_new_tokens = ASTER_DEFAULT_MAX_NEW;
     g->temperature = 0.0f;   /* greedy by default, so debugging is repeatable */
     g->top_k = 0;
+    g->repetition_penalty = 1.1f;
     g->seed = 0;
     g->system = NULL;
+    g->previous_user = NULL;
+    g->previous_reply = NULL;
+    g->history_used = NULL;
+    g->plain_text = 0;
 }
 
 int aster_prompt_budget(const AsterConfig *cfg, int max_new_tokens, int system_tokens) {
@@ -992,21 +997,36 @@ size_t aster_generate_out_cap(const AsterModel *m) {
 static void apply_top_k(float *work, int V, int k) {
     if (k < 1) k = 1;
     if (k >= V) return;
+    float *ranked = (float *)aster_xmalloc((size_t)V * sizeof(float));
+    memcpy(ranked, work, (size_t)V * sizeof(float));
     float kth = -INFINITY;
     for (int i = 0; i < k; ++i) {
         int best = -1;
         float bv = -INFINITY;
-        for (int j = 0; j < V; ++j) if (isfinite(work[j]) && work[j] > bv) { bv = work[j]; best = j; }
+        for (int j = 0; j < V; ++j) if (isfinite(ranked[j]) && ranked[j] > bv) { bv = ranked[j]; best = j; }
         if (best < 0) break;
         if (i == k - 1) { kth = bv; break; }
-        work[best] = -INFINITY;
+        ranked[best] = -INFINITY;
     }
     if (isfinite(kth)) for (int j = 0; j < V; ++j) if (work[j] < kth) work[j] = -INFINITY;
+    free(ranked);
 }
 
-static int sample_next(const float *logits, int V, const GenParams *gp, uint32_t *rng) {
+int aster_sample_next(const float *logits, int V, const GenParams *gp,
+                      const uint16_t *generated, int count, uint32_t *rng) {
     float *work = (float *)aster_xmalloc((size_t)V * sizeof(float));
     for (int i = 0; i < V; ++i) work[i] = isfinite(logits[i]) ? logits[i] : -INFINITY;
+    if (isfinite(gp->repetition_penalty) && gp->repetition_penalty > 1.0f) {
+        unsigned char *seen = (unsigned char *)aster_xcalloc((size_t)V, 1);
+        for (int j = 0; j < count; ++j) {
+            int id = generated[j];
+            if (id >= V || seen[id] || (id >= TOK_SYSTEM && id <= TOK_PAD)) continue;
+            seen[id] = 1;
+            work[id] = work[id] < 0.0f ? work[id] * gp->repetition_penalty
+                                       : work[id] / gp->repetition_penalty;
+        }
+        free(seen);
+    }
 
     int pick;
     if (gp->temperature <= 0.0f) {
@@ -1029,7 +1049,7 @@ static int sample_next(const float *logits, int V, const GenParams *gp, uint32_t
     double r = (double)aster_rng_uniform(rng) * total;
     double acc = 0.0;
     pick = V - 1;
-    for (int i = 0; i < V; ++i) { acc += work[i]; if (r <= acc) { pick = i; break; } }
+    for (int i = 0; i < V; ++i) { acc += work[i]; if (work[i] > 0.0f && r < acc) { pick = i; break; } }
     free(work);
     return pick;
 }
@@ -1040,12 +1060,16 @@ size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
     const AsterConfig *cfg = &m->cfg;
     const AsterVocab *v = &m->vocab;
     const int C = cfg->context;
+    if (hit_end) *hit_end = 0;
+    if (left_turn) *left_turn = 0;
+    if (truncated) *truncated = 0;
+    if (gp->history_used) *gp->history_used = 0;
 
     int max_new = gp->max_new_tokens;
     if (max_new < 1) max_new = 1;
     if (max_new > C - 1) max_new = C - 1;
     const char *system = gp->system ? gp->system : "";
-    int budget = aster_prompt_budget_for(m, max_new, system);
+    int budget = gp->plain_text ? C - max_new : aster_prompt_budget_for(m, max_new, system);
 
     /* Encode the prompt and drop the OLDEST tokens when it is too long, so
      * the most recent part of the question survives. Truncating in token
@@ -1058,7 +1082,9 @@ size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
             aster_fail("the prompt contains a NUL byte, which cannot be encoded");
     }
     if ((int)pl.count > budget) {
-        pl.count -= (size_t)((int)pl.count - budget);
+        size_t drop = pl.count - (size_t)budget;
+        memmove(pl.ids, pl.ids + drop, (size_t)budget * sizeof *pl.ids);
+        pl.count = (size_t)budget;
         if (truncated) *truncated = 1;
     }
 
@@ -1067,20 +1093,44 @@ size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
      * forward pass meaningful. */
     uint16_t *seq = (uint16_t *)aster_xcalloc((size_t)C, sizeof(uint16_t));
     int n = 0;
+    if (!gp->plain_text) {
     seq[n++] = TOK_SYSTEM;
     if (*system) {
         TokenList sl;
         token_list_init(&sl);
         tok_encode(v, system, strlen(system), &sl);
-        for (size_t i = 0; i < sl.count && n < C; ++i) seq[n++] = sl.ids[i];
+        /* Keep room for all remaining markers and at least one reply token. */
+        for (size_t i = 0; i < sl.count && n < C - 4; ++i) seq[n++] = sl.ids[i];
+        if (sl.count > (size_t)(C - 5) && truncated) *truncated = 1;
         token_list_free(&sl);
     }
+    if (gp->previous_user && gp->previous_reply) {
+        TokenList hu, ha;
+        token_list_init(&hu); token_list_init(&ha);
+        int ok = tok_encode(v, gp->previous_user, strlen(gp->previous_user), &hu) == 0
+              && tok_encode(v, gp->previous_reply, strlen(gp->previous_reply), &ha) == 0;
+        if (ok && hu.count + ha.count + 4 <= (size_t)budget - pl.count) {
+            seq[n++] = TOK_USER;
+            for (size_t i = 0; i < hu.count; ++i) seq[n++] = hu.ids[i];
+            seq[n++] = TOK_END;
+            seq[n++] = TOK_ASSISTANT;
+            for (size_t i = 0; i < ha.count; ++i) seq[n++] = ha.ids[i];
+            seq[n++] = TOK_END;
+            if (gp->history_used) *gp->history_used = 1;
+        }
+        token_list_free(&hu); token_list_free(&ha);
+    }
     seq[n++] = TOK_USER;
+    }
     for (size_t i = 0; i < pl.count; ++i) seq[n++] = pl.ids[i];
+    if (!gp->plain_text) {
     seq[n++] = TOK_END;
     seq[n++] = TOK_ASSISTANT;
+    }
+    if (n == 0) seq[n++] = '\n'; /* an empty text prompt needs one input token */
     token_list_free(&pl);
     if (n > C) n = C;
+    int reply_start = n;
 
     uint32_t rng;
     aster_rng_seed_init(&rng, gp->seed ? gp->seed : 0x5EEDu);
@@ -1109,7 +1159,7 @@ size_t aster_generate(AsterModel *m, const char *prompt, const GenParams *gp,
         /* The arena is sized for the longest possible sequence, so the last
          * row of logits is row (n - 1), not row (a->T - 1). */
         const float *lg = a->logits + (size_t)(n - 1) * (size_t)cfg->vocab;
-        int next = sample_next(lg, cfg->vocab, gp, &rng);
+        int next = aster_sample_next(lg, cfg->vocab, gp, seq + reply_start, n - reply_start, &rng);
         if (next < 0 || next >= cfg->vocab)
             aster_fail("internal: sampled token id %d is outside the vocabulary", next);
 

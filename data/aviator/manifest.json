@@ -1,0 +1,45 @@
+{
+  "dataset": "kaggleaccount7537/aviator-game-dataset",
+  "url": "https://www.kaggle.com/datasets/kaggleaccount7537/aviator-game-dataset",
+  "version": 2,
+  "license_reported_by_kaggle": "Unknown",
+  "archive_sha256": "5666cf09db65ca9f55c183a85f7b25d3011e4339dae8ea9e039837a8dfbab362",
+  "source_csv_sha256": "d7f495ef47af02c660669d2b9905fc0d40f6a182aa954c4430e522fd73d77fef",
+  "source_csv": "multipliers.csv",
+  "rows": 732367,
+  "min_multiplier": 1.0,
+  "max_multiplier": 658072.86,
+  "split": "80/10/10 contiguous in source file order; timestamps absent, chronology unverified",
+  "transform": "Header removed; original numeric spelling preserved; LF newline per record",
+  "excluded": "All cleaned feature columns: some are explicitly derived from the current target",
+  "task": "Experimental numeric text sequence modeling, not demonstrated future-round prediction",
+  "splits": {
+    "train": {
+      "file": "data\\aviator\\train.txt",
+      "rows": 585893,
+      "source_row_start_inclusive_0based": 0,
+      "source_row_stop_exclusive_0based": 585893,
+      "bytes": 2915569,
+      "sha256": "7d86ec37ea9e70c7f8fb8dc872bc39c155e8a3f6066f61d5048359d4c6ab20b9",
+      "byte_unigram_bits_per_byte": 3.2322882766718513
+    },
+    "validation": {
+      "file": "data\\aviator\\validation.txt",
+      "rows": 73237,
+      "source_row_start_inclusive_0based": 585893,
+      "source_row_stop_exclusive_0based": 659130,
+      "bytes": 364306,
+      "sha256": "ab72e164f8a0918a6b90419919cfdea952f6495e967fecd2a3a7670c2ac5e597",
+      "byte_unigram_bits_per_byte": 3.231330597559066
+    },
+    "test": {
+      "file": "data\\aviator\\test.txt",
+      "rows": 73237,
+      "source_row_start_inclusive_0based": 659130,
+      "source_row_stop_exclusive_0based": 732367,
+      "bytes": 364292,
+      "sha256": "056eaab6c557104b4f6a7eb225a85852772b5749c27b71b70a90080b8ec830bf",
+      "byte_unigram_bits_per_byte": 3.2330106456001277
+    }
+  }
+}

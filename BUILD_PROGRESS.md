@@ -32,7 +32,9 @@ are kept as the historical record.)*
 | Build scripts | `build.bat` and `build.sh`; all four exit paths of each checked |
 | README / MODEL_CARD / data provenance | written and updated with both loss figures |
 | Data converter (`tools/oasst2jsonl`) | written, tested, splits by construction, SHA-256 per file |
-| oasst1 corpus (~15 000 conversations) | **not downloaded** — blocked on the user; converter and instructions ready |
+| oasst1 corpus | **downloaded and converted**: 88 838 messages verified, **2 276 English conversations** (4.66 MB), redacted. **Not yet trained on** — that needs the owner's decision on volunteer-written personal data |
+| Trees flattener (`tools/oassttrees2flat.awk`) | new; recovers all 88 838 messages, 0 dangling parents |
+| Redactor (`tools/oasst-redact.awk`) | new; 16 emails / 8 IPs / 93 number runs removed, re-scan clean |
 
 The honest headline: **the pipeline is complete and verified end to end, and
 the model is still not very good.** The sub-word tokenizer made the *English*
@@ -827,12 +829,304 @@ licence and SHA-256 when it is.
   its own copy, so a model never depends on a separate file staying in sync.
   `models/aster-small.vocab` is written for reproducibility; the checkpoint is
   what is loaded.
-- The old `models/aster-small.bin` is a `byte-v1` checkpoint that this build
-  **refuses by design**, with a message saying to retrain. It has not been
-  deleted; doing so needs the user's authorisation. It is also still the
-  checkpoint `build.bat`'s own closing instructions tell a new user to train over,
-  so retraining is the intended next step rather than an obstacle.
+- `models/aster-small.bin` has been **retrained** on the BPE tokenizer and is
+  the checkpoint the README tells a new user to run. The previous byte-v1 file
+  was tracked in git, so it is still recoverable with
+  `git show HEAD:models/aster-small.bin`. The retrain reproduced the scratch
+  run exactly — same 885 merges, same 2.3498 bits/byte, same best step 450 —
+  which is the reproducibility claim being true rather than asserted.
 - `build.bat` **succeeded** and `aster.exe` is built and current. The training,
   evaluation, generation, corruption and server results above were produced with
   `tmp/aster-chk.exe` and re-verified against `aster.exe` itself; the numbers are
   identical.
+
+### The shipped checkpoint, verified against the documented commands
+
+`models/aster-small.bin` was retrained so the README's own commands work. Run
+top to bottom, with the real `aster.exe`:
+
+```powershell
+.\aster.exe generate --model models/aster-small.bin --prompt "Who are you?"
+```
+
+```
+  model aster-small.bin: 180992 parameters, 128-token context, 1146 tokens in the
+  vocabulary (885 merges, 3.68 bytes/token), trained 450 step(s)
+  --- generated text (raw model output) ---
+I am a small model that runs on your own computer.
+--- end ---
+  stopped on the END marker                                            exit 0
+```
+
+```powershell
+.\aster.exe eval --model models/aster-small.bin --mode chat --data data/demo_valid.jsonl
+```
+
+```
+    2.3498 bits/byte  <- the figure to compare across tokenizers
+    4.8693 nats/token  (perplexity 130.23; comparable only against a model using
+                       the SAME vocabulary, so do not compare it to the number above)
+    over 1239 scored tokens covering 3704 bytes (2.99 bytes/token)
+```
+
+```powershell
+.\aster.exe serve --model models/aster-small.bin --port 8080
+curl.exe http://127.0.0.1:8080/api/status
+```
+
+```json
+{"ready":true,"status":"ready","model":"aster-small.bin","train_step":450,"seed":1234,
+ "architecture":{"n_layer":2,"n_head":4,"d_model":64,"d_ff":256,"context_tokens":128,
+ "vocab":1146},"parameters":180992,"tokenizer":"bpe-2","max_new_tokens":80,
+ "temperature":0.000,"top_k":0,"prompt_budget_tokens":44,"bytes_per_token":3.684,
+ "network":"none","tools":"none","persistent_memory":"none"}
+```
+
+`POST /api/chat` returns the same reply as the CLI, and `GET /` returns 200.
+The server log is still four lines with no prompt text and no dataset content.
+
+**Reproducibility, checked rather than claimed.** The scratch run used
+`--vocab tmp/demo.vocab`; the shipped run let `train` learn the vocabulary from
+`--data`. Both independently produced **885 merges, 1146 tokens, 3.68 bytes per
+token, 180 992 parameters, best step 450, 2.3498 bits/byte** — two different
+code paths, identical output.
+
+---
+
+## Session: obtaining the oasst1 corpus
+
+The standing goal was "more training data". The download was performed at the
+user's explicit request, into `tmp/oasst/`, which `.gitignore` already excludes.
+**This does not give the project network access.** `aster.exe` and
+`tools/oasst2jsonl.c` still open no sockets and download nothing; `curl` did the
+transfer, in an ordinary terminal, outside the build.
+
+### The advice in `data/README.md` was wrong
+
+It said to download `2023-04-12_oasst_ready.messages.jsonl.gz` and that the
+`.trees.` files were "not the input". That is backwards, and running it proved
+why:
+
+```
+  read tmp/oasst/flat.jsonl
+    lines 88838, parsed as messages 40822
+    roots found 0, conversations written 0
+error: no conversation survived the filters, so nothing was written
+```
+
+The flat messages file has **no `parent_message_id` in any of its 88 838
+records**. It carries `message_tree_id` and `created_date`; parentage was
+discarded without being recorded. Every message therefore looks like a root, and
+0 roots survived. The converter behaved correctly and loudly, which is the one
+thing it was built to do.
+
+The `.trees.` file holds the same 88 838 messages nested under `children`, with
+parentage implied by the structure. It is the only published file the tree can
+be recovered from.
+
+A second error in the same section: it claimed the `ready` export holds 161 443
+messages. That is the `all` export. `ready` holds **88 838**, measured.
+
+### `tools/oassttrees2flat.awk` — new
+
+Flattens the nested trees export into the flat form the existing, already-tested
+converter reads unchanged.
+
+It took three attempts, and the two failures were the interesting part.
+
+**Attempt 1** concatenated every string into one buffer because a ternary meant
+to insert a separator always evaluated to the empty string. It reported 99.99 %
+non-alternation on a corpus that is 95.28 % alternating.
+
+**Attempt 2** tracked the open message with a `have_msg` flag and emitted when
+`depth == cur - 1`. It produced **exactly one record** from a 12-message tree,
+and the reason is the mistake worth writing down: **a message object is not a
+leaf.** It carries `labels`, `rank` and `review_state`, so the first `}` after
+its `message_id` belongs to one of those nested objects, not to the message.
+The flag stayed set, so the *next* message's `message_id` was swallowed as if it
+were a field of the current one, and the rest of the tree was never captured.
+
+**Attempt 3**, which works, drops the flag entirely and indexes open messages by
+brace depth. A `{` raises the depth; a `}` lowers it; the object that just closed
+is always the one at the new depth plus one before the decrement. A message read
+at depth D therefore closes on the `}` bringing the depth to D-1, and every
+nested `}` inside it sits at a depth above D and cannot touch it. The parent is
+then just the nearest shallower depth holding a message id — ancestors are still
+open when the child is read, so the depth index *is* the stack and nothing is
+popped.
+
+One off-by-one survived into this version and was caught by the trace: the
+closed object is at the **pre-decrement** depth, not `depth + 1`. With it wrong,
+the root still emitted — by accident, via the tree object's own closing brace —
+which is exactly the kind of partial success that survives a careless test.
+
+### Verification
+
+The count is the check that matters, and it is not self-consistent: the trees
+file and the messages file are **separately published**, and both give 88 838.
+
+```
+# trees 10364  messages 88838
+```
+
+| Check | Result |
+|---|---|
+| distinct `message_id` values | 88 838 (no duplicates) |
+| roots (empty parent) | 10 364 — one per tree |
+| parent ids referenced but absent | 0 |
+| messages whose parent is not in the file | 0 |
+| roots whose role is not `prompter` | 0 |
+| nodes whose role equals their parent's role | 0 |
+
+The last row is the one that matters: strict role alternation holds across all
+88 838 messages, so the recovered parentage is the conversation structure and not
+an artefact of the nesting.
+
+A root **omits** `parent_message_id` rather than setting it to `""`. The
+converter reads an absent or null value as a root, but `field_get` returns
+success for the empty string, so a root written that way was a parent whose id
+is `""` — which is why the first converted run found 0 roots even after the
+flattener was emitting twelve correct ones.
+
+### The conversion
+
+```
+    lines 88838, parsed as messages 40822
+    skipped: language filter (47533)
+    skipped: shorter than --min-chars (483)
+    roots found 3652, conversations written 2276
+    held-out split: 119 conversations (every 20th), 238586 bytes
+    turns written 7694, training total 4662869 bytes
+warning: 10417 alternative replies were dropped: oasst1 is a tree and Aster's
+         format is linear, so one reply per prompt is kept
+    dropped, last turn had no reply: 1257
+```
+
+**2 276 English conversations, 4 662 869 bytes** — 6.9× the demo corpus by
+conversation count and about 185× by bytes.
+
+The project's original target of 15 000 conversations **is not reachable**.
+`--max-conversations 15000` never binds: after the language filter and the
+length filter, English oasst1 is 2 276 conversations. The plan assumed 15 000
+and the assumption was wrong; recording the number is more useful than leaving
+the target in place.
+
+The 10 417 dropped alternatives is a genuine loss, not rounding: oasst1 branched
+heavily, and discarding a sibling discards **its descendants** too. The
+converter keeps the first child in file order, not the highest-ranked one.
+That is a defensible choice and a different one, and which produces a better
+model has **not** been measured.
+
+### Personal data
+
+oasst1 was written by volunteers. A pattern scan of the converted output, run
+without printing any message text, found:
+
+| Pattern | Found |
+|---|---|
+| email addresses | 11 |
+| long digit runs (phone/account) | 27 |
+| IPv4 addresses | 6 |
+| URLs | 105 |
+| API-key-shaped strings | 0 |
+
+`tools/oasst-redact.awk` replaces those with placeholders. It loops until no
+match remains, so it replaced **16 emails, 8 IPs and 93 number runs** — more
+than the first scan reported, because a single long number can contain several
+matches. A re-scan of the output finds **zero** of each.
+
+It redacts rather than deletes: dropping a whole conversation for one address
+would cost the other two thousand characters of it, and a corpus missing exactly
+the conversations where someone described their own situation is a biased
+corpus.
+
+**It cannot catch real names, employers, towns, or health details.** Those need
+a human to read the file. This narrows the problem; it does not close it.
+
+### Not done, and why
+
+**The model has not been retrained on this corpus, and no oasst1 loss number is
+claimed anywhere in this project.** Training on volunteer-written personal data
+needs the owner's explicit decision, so the run was stopped at a redacted,
+measured, documented dataset in the scratch directory.
+
+The converted corpus is in `tmp/`, which is gitignored. It was deliberately
+**not** copied into `data/`: whether other people's writing belongs in the
+repository is the owner's call, not the tool's.
+
+Next step, on authorisation: learn the vocabulary from the redacted training
+file only, train, and evaluate on **both** the oasst1 holdout (in-distribution)
+and `data/demo_valid.jsonl` (out-of-distribution). Reporting only the first
+would be the dishonest choice.
+
+## 2026-10-11: generation and chat improvements
+
+- Fixed top-k filtering: ranking no longer destroys the highest k-1 candidates.
+- Fixed prompt truncation to keep the latest tokens, and bounded system text to
+  prevent marker writes beyond the context array. Generation output flags reset
+  on each call.
+- Added reply-only repetition penalty (default 1.1; configurable from 1 to 2).
+- Added one complete previous exchange as optional chat context, using role
+  markers. The current message and reply reservation take priority. The API
+  reports history_used and explains when history is omitted. No server storage.
+- Added model dimension flags for new training runs; existing checkpoint
+  dimensions are unchanged.
+- Added copy reply, chat export, a context toggle, expandable model details,
+  wrapping composer controls, and start.bat. Fixed notices displaying as model
+  output and pending-turn indexing at the transcript limit.
+
+Validation: built with GCC C11 -O2 -Wall -Wextra -Werror, zero warnings; all 66
+self-tests passed; JavaScript syntax check passed. Local HTTP checks verified
+status, history inclusion, history omission, and HTTP 400 for unpaired history.
+A two-step training smoke test with a 1-layer, width-16, 2-head, feed-forward-32,
+context-32 model wrote a separate checkpoint under tmp/, verifying dimension
+flags. Browser checks verified replies, follow-up requests, copy confirmation,
+transcript restoration, and successful text export.
+
+The existing trained checkpoint and data were not modified by this pass. No
+new held-out quality improvement is claimed. The observed follow-up reply
+remained incoherent even with context: this model still needs substantially
+better training to become a useful assistant.
+
+## 2026-10-11: requested Kaggle Aviator training
+
+Downloaded version 2 of kaggleaccount7537/aviator-game-dataset (732,367 raw
+multipliers). Prepared source-order 80/10/10 splits with hashes and provenance
+in data/aviator/manifest.json. Excluded target-derived cleaned features. Dataset
+license is reported as Unknown; the downloaded files remain local.
+
+Trained a separate 27,104-parameter, one-layer numeric text Aster from random
+weights for 1,000 steps, batch 8, block 64, stride 64, seed 1234, 64 BPE merges.
+Saved models/aster-aviator.bin; the conversational checkpoint was not changed.
+Validation bits/byte improved from 3.661802 to 1.942678. Selected step 1000.
+The held-out test result was 1.9432 bits/byte (3.0668 nats/token). These are text
+likelihood measurements, not next-round prediction accuracy. Generated numeric
+text can repeat or become incoherent.
+
+Added generate --mode text to avoid injecting chat markers into numeric
+continuations, and --stride for manageable text training/evaluation windows.
+Recorded stride in metadata for future training runs. Corrected the trainer's
+checkpoint-selection log sentence, which previously said loss was rising even
+when the final step was best. All 68 self-tests passed, including raw text
+continuation and window-stride regressions. Built without warnings using
+-Wall -Wextra -Werror. A separate one-step smoke run verified stride metadata.
+See data/aviator/README.md and run.json for the reproducible training record.
+
+## 2026-10-11: below-2x signal feasibility and BetPawa Cameroon inspection
+
+Inspected the user-provided Aviator game URL on betpawa.cm (game 3255). It
+required Login/Join Now in the available session, so live collection is not
+connected. The public Aviator page states that rounds are independent and
+past results do not predict future outcomes.
+
+Added an optional NumPy logistic classifier with 64-round past-only features,
+a distinct calibration block, a qualification block, and held-out test scoring.
+The fixed 95% probability gate requires 100 validation alerts, a 95% Wilson
+precision lower bound >= 90%, and Brier improvement over a constant baseline.
+This model failed the gate: test AUC 0.497633, Brier 0.249800 versus baseline
+0.249701, maximum probability 55.25%, zero qualifying alerts. Cached local
+inference p95 was 0.452445 ms; this excludes network and collection latency.
+File replay returns NO_SIGNAL and never poses as a live alert. Four meaningful
+unit checks passed. Source inspection, metrics, and remaining live-connection
+requirements are recorded in data/aviator/SIGNAL_REPORT.md. No claim of
+predictive certainty or automatic synchronization is made.

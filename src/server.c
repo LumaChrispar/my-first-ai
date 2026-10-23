@@ -186,12 +186,13 @@ static void route_status(AsterServer *s, socket_t c) {
         "\"parameters\":%d,\"tokenizer\":\"bpe-2\","
         "\"max_new_tokens\":%d,\"temperature\":%.3f,\"top_k\":%d,"
         "\"prompt_budget_tokens\":%d,\"bytes_per_token\":%.3f,"
-        "\"network\":\"none\",\"tools\":\"none\",\"persistent_memory\":\"none\"}",
+        "\"network\":\"none\",\"tools\":\"none\",\"persistent_memory\":\"none\","
+        "\"conversation_memory\":\"previous exchange when it fits\",\"repetition_penalty\":%.3f}",
         s->name, s->step, s->seed,
         g->n_layer, g->n_head, g->d_model, g->d_ff, g->context, g->vocab,
         s->model->off.total, s->max_new_tokens, (double)s->temperature, s->top_k,
         aster_prompt_budget_for(s->model, s->max_new_tokens, s->system),
-        s->model->vocab.bytes_per_token);
+        s->model->vocab.bytes_per_token, (double)s->repetition_penalty);
     respond_json(c, 200, "OK", (n > 0 && (size_t)n < sizeof body) ? body
                                                                     : "{\"ready\":false}");
 }
@@ -252,11 +253,36 @@ static void route_chat(AsterServer *s, socket_t c, const char *body, size_t blen
     }
 
     GenParams gp;
+    gen_params_default(&gp);
     gp.max_new_tokens = s->max_new_tokens;
     gp.temperature = s->temperature;
     gp.top_k = s->top_k;
     gp.seed = s->seed;
     gp.system = s->system;
+    gp.repetition_penalty = s->repetition_penalty;
+    char previous_user[8192], previous_reply[8192];
+    int history_used = 0;
+    const char *keys[2] = { "previous_user", "previous_reply" };
+    char *values[2] = { previous_user, previous_reply };
+    int present[2] = {0, 0};
+    for (int i = 0; i < 2; ++i) {
+        rc = json_get_string(body, blen, keys[i], values[i], 8192, jerr, sizeof jerr);
+        if (rc == -2) continue;
+        if (rc != 0) {
+            respond_error(c, rc == -3 ? 413 : 400, rc == -3 ? "Payload Too Large" : "Bad Request",
+                          "invalid_history", jerr); return;
+        }
+        present[i] = 1;
+    }
+    if (present[0] != present[1]) {
+        respond_error(c, 400, "Bad Request", "invalid_history",
+                      "Supply both previous_user and previous_reply, or neither."); return;
+    }
+    if (present[0]) {
+        gp.previous_user = previous_user;
+        gp.previous_reply = previous_reply;
+    }
+    gp.history_used = &history_used;
 
     char *reply = (char *)aster_xmalloc(aster_generate_out_cap(s->model));
     int hit_end = 0, left_turn = 0, truncated_ctx = 0;
@@ -280,7 +306,7 @@ static void route_chat(AsterServer *s, socket_t c, const char *body, size_t blen
     }
     free(reply);
 
-    char note[256] = {0};
+    char note[512] = {0};
     if (truncated_prompt)
         snprintf(note, sizeof note, "Only the end of your message fit in this model's "
                  "%d-token context, so older text was dropped.", g->context);
@@ -289,6 +315,8 @@ static void route_chat(AsterServer *s, socket_t c, const char *body, size_t blen
                  "reply, so this was cut off here.");
     else if (truncated_ctx)
         snprintf(note, sizeof note, "Generation stopped because the %d-token context filled up.", g->context);
+    if (present[0] && !history_used)
+        strncat(note, " The previous exchange did not fit and was omitted.", sizeof note - strlen(note) - 1);
     char esc_note[1024];
     if (json_escape(note, esc_note, sizeof esc_note) != 0) esc_note[0] = '\0';
 
@@ -296,8 +324,9 @@ static void route_chat(AsterServer *s, socket_t c, const char *body, size_t blen
     char *out = (char *)aster_xmalloc(out_cap);
     snprintf(out, out_cap,
         "{\"reply\":\"%s\",\"note\":\"%s\",\"hit_end_marker\":%s,"
-        "\"model\":\"%s\",\"train_step\":%u,\"max_new_tokens\":%d}",
-        esc_reply, esc_note, hit_end ? "true" : "false", s->name, s->step, s->max_new_tokens);
+        "\"model\":\"%s\",\"train_step\":%u,\"max_new_tokens\":%d,\"history_used\":%s}",
+        esc_reply, esc_note, hit_end ? "true" : "false", s->name, s->step, s->max_new_tokens,
+        history_used ? "true" : "false");
     respond_json(c, 200, "OK", out);
     free(out);
     free(esc_reply);

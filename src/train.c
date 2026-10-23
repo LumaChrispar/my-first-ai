@@ -138,14 +138,15 @@ static AsterDataset *build_text(const DataSpec *spec, char *err, size_t errlen) 
         return NULL;
     }
 
-    int n = (int)(d->stream_len - (size_t)spec->block);
+    int stride = spec->stride > 0 ? spec->stride : 1;
+    int n = (int)((d->stream_len - (size_t)spec->block - 1) / (size_t)stride + 1);
     if (spec->max_examples > 0 && n > spec->max_examples) n = spec->max_examples;
     d->win = (AsterWindow *)aster_xcalloc((size_t)n, sizeof *d->win);
     d->n_win = n;
     d->ones = (float *)aster_xmalloc((size_t)spec->block * sizeof(float));
     for (int i = 0; i < spec->block; ++i) d->ones[i] = 1.0f;
     for (int i = 0; i < n; ++i) {
-        d->win[i].start = (size_t)i;
+        d->win[i].start = (size_t)i * (size_t)stride;
         d->win[i].len = spec->block;
         d->win[i].w = d->ones;
     }
@@ -907,8 +908,8 @@ int aster_train(const TrainConfig *tc, const AsterConfig *mcfg,
     double val1 = val0;
     if (va) {
         if (best_step > 0 && best_step < step) {
-            aster_info("held-out loss was still rising at step %d; reverting to the best "
-                       "held-out parameters from step %d", step - 1, best_step);
+            aster_info("selecting the best held-out parameters from step %d "
+                       "after %d training steps", best_step, step - 1);
             memcpy(model->params, best_params, (size_t)nparams * sizeof(float));
             step = best_step;
         }
@@ -954,6 +955,7 @@ int aster_train(const TrainConfig *tc, const AsterConfig *mcfg,
             "  \"seed\": %u,\n"
             "  \"batch\": %d,\n"
             "  \"block_tokens\": %d,\n"
+            "  \"text_stride\": %d,\n"
             "  \"optimizer\": \"AdamW\",\n"
             "  \"learning_rate\": %.8g,\n"
             "  \"warmup_steps\": %d,\n"
@@ -977,6 +979,7 @@ int aster_train(const TrainConfig *tc, const AsterConfig *mcfg,
             mcfg->vocab - ASTER_BASE_VOCAB, model->vocab.bytes_per_token,
             mcfg->n_layer, mcfg->n_head, mcfg->d_model, mcfg->d_ff, mcfg->context,
             mcfg->vocab, nparams, step, tc->seed, B, block,
+            train_spec->stride > 0 ? train_spec->stride : 1,
             (double)tc->lr, tc->warmup, (double)tc->weight_decay,
             (double)tc->beta1, (double)tc->beta2, (double)tc->clip,
             tr->hash, va ? va->hash : "", tr->n_win, va ? va->n_win : 0,

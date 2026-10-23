@@ -24,6 +24,7 @@ typedef struct {
     int          block;        /* tokens per training window */
     int          max_examples; /* 0 means no cap */
     const AsterVocab *v;       /* tokenizer; must match the model's */
+    int stride;              /* text window stride; zero means 1 */
 } DataSpec;
 
 typedef struct {

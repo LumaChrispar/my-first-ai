@@ -193,13 +193,22 @@ typedef struct {
     int      max_new_tokens;   /* hard cap on tokens produced */
     float    temperature;      /* <= 0 means greedy and fully deterministic */
     int      top_k;            /* 0 means no top-k filter; else clamped to vocab */
+    float    repetition_penalty; /* >= 1; 1 disables, applies only to reply tokens */
     uint32_t seed;
     /* Text placed between the SYSTEM and USER markers. This MUST match the
      * system text used at training time (or be empty if the corpus had no
      * system turn). A model of this size has no way to infer the system text,
      * so a mismatch shows up as empty or nonsensical replies. NULL == empty. */
     const char *system;
+    const char *previous_user; /* optional complete preceding exchange */
+    const char *previous_reply;
+    int *history_used;         /* optional output: exchange fit in context */
+    int plain_text;            /* continue text without chat role markers */
 } GenParams;
+
+/* Sampling is exposed for deterministic regression checks. */
+int aster_sample_next(const float *logits, int V, const GenParams *gp,
+                      const uint16_t *generated, int count, uint32_t *rng);
 
 void gen_params_default(GenParams *g);
 
@@ -222,7 +231,9 @@ int  aster_prompt_budget_for(const AsterModel *m, int max_new_tokens, const char
  * stopped talking. */
 size_t aster_generate_out_cap(const AsterModel *m);
 
-/* Builds [SYSTEM] <system> [USER] <prompt> [END] [ASSISTANT] and samples.
+/* Builds [SYSTEM] <system>, an optional complete previous exchange, then
+ * [USER] <prompt> [END] [ASSISTANT] and samples. History is omitted if it
+ * cannot fit alongside the current prompt and reserved reply tokens.
  * When the prompt does not fit, the OLDEST prompt TOKENS are dropped and
  * *truncated is set so the caller can say so out loud.
  *

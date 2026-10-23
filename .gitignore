@@ -16,3 +16,10 @@ models/*.meta.json
 # Run logs. These are local evidence of a run, not source.
 tmp/
 *.log
+
+# Downloaded Aviator corpus and generated splits. Provenance stays in manifest.json.
+data/aviator/*.zip
+data/aviator/train.txt
+data/aviator/validation.txt
+data/aviator/test.txt
+__pycache__/

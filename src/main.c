@@ -42,10 +42,12 @@ static void print_help(void) {
     puts("  --steps N             optimizer steps (default 1000)");
     puts("  --batch N             windows per step (default 8)");
     puts("  --block N             tokens per window, <= context (default 64)");
+    puts("  --stride N            text window stride (default 1; use block for disjoint windows)");
     puts("  --lr X                learning rate (default 1e-3)");
     puts("  --log-every N         log interval in steps (default 25)");
     puts("  --merges N            BPE merges to learn (default 1024, 0 = byte only)");
     puts("  --vocab PATH          reuse a learned .vocab instead of learning one");
+    puts("  --layers N --width N --heads N --ff N --context N  model dimensions");
     puts("");
     puts("VOCAB");
     puts("  --data PATH           text to learn from, repeatable (required to learn)");
@@ -61,10 +63,12 @@ static void print_help(void) {
     puts("GENERATE / SERVE");
     puts("  --model PATH          checkpoint to load");
     puts("  --prompt TEXT         prompt for generate");
+    puts("  --mode text|chat      generate: default chat; text continues without role markers");
     puts("  --system TEXT         text between SYSTEM and USER; must match training");
     puts("  --max-new-tokens N    cap on generated tokens (default 80)");
     puts("  --temp X              sampling temperature; 0 or less means greedy (default 0)");
     puts("  --top-k N             keep only the N most likely tokens (0 = off)");
+    puts("  --repetition-penalty X  discourage repeated reply tokens (default 1.1; 1 = off)");
     puts("  --seed N              sampling seed (default 1234)");
     puts("  --host ADDR           loopback address to bind (default 127.0.0.1)");
     puts("  --port N              port to bind (default 8080)");
@@ -113,6 +117,9 @@ typedef struct {
     int    has_temp, has_lr;
     uint32_t seed;
     int    has_seed;
+    int layers, width, heads, ff, context;
+    float repetition_penalty;
+    int has_mode, stride;
 } Args;
 
 static int arg_int(const char *s, const char *what) {
@@ -146,6 +153,7 @@ static void parse_args(int argc, char **argv, Args *a, int start) {
     a->has_temp = 0;
     a->merges = ASTER_DEFAULT_MERGES;
     a->has_merges = 0;
+    a->repetition_penalty = 1.1f;
 
 #define NEXT() do { if (i + 1 >= argc) aster_fail("%s needs a value", argv[i]); } while (0)
     for (int i = start; i < argc; ++i) {
@@ -160,7 +168,8 @@ static void parse_args(int argc, char **argv, Args *a, int start) {
         else if (!strcmp(k, "--prompt"))    { NEXT(); a->prompt = argv[++i]; }
         else if (!strcmp(k, "--system"))    { NEXT(); a->system = argv[++i]; }
         else if (!strcmp(k, "--host"))      { NEXT(); a->host = argv[++i]; }
-        else if (!strcmp(k, "--mode"))      { NEXT(); a->mode = argv[++i]; }
+        else if (!strcmp(k, "--mode"))      { NEXT(); a->mode = argv[++i]; a->has_mode = 1; }
+        else if (!strcmp(k, "--stride"))    { NEXT(); a->stride = arg_int(argv[++i], k); if (a->stride < 1) aster_fail("--stride must be positive"); }
         else if (!strcmp(k, "--seed"))      { NEXT(); a->seed = (uint32_t)arg_int(argv[++i], "--seed"); a->has_seed = 1; }
         else if (!strcmp(k, "--steps"))     { NEXT(); a->steps = arg_int(argv[++i], "--steps"); }
         else if (!strcmp(k, "--batch"))     { NEXT(); a->batch = arg_int(argv[++i], "--batch"); }
@@ -170,6 +179,12 @@ static void parse_args(int argc, char **argv, Args *a, int start) {
         else if (!strcmp(k, "--max-new-tokens")) { NEXT(); a->max_new = arg_int(argv[++i], "--max-new-tokens"); a->has_max_new = 1; }
         else if (!strcmp(k, "--temp"))      { NEXT(); a->temp = arg_float(argv[++i], "--temp"); a->has_temp = 1; }
         else if (!strcmp(k, "--top-k"))     { NEXT(); a->top_k = arg_int(argv[++i], "--top-k"); }
+        else if (!strcmp(k, "--repetition-penalty")) { NEXT(); a->repetition_penalty = arg_float(argv[++i], k); }
+        else if (!strcmp(k, "--layers")) { NEXT(); a->layers = arg_int(argv[++i], k); if (a->layers < 1) aster_fail("--layers must be positive"); }
+        else if (!strcmp(k, "--width")) { NEXT(); a->width = arg_int(argv[++i], k); if (a->width < 1) aster_fail("--width must be positive"); }
+        else if (!strcmp(k, "--heads")) { NEXT(); a->heads = arg_int(argv[++i], k); if (a->heads < 1) aster_fail("--heads must be positive"); }
+        else if (!strcmp(k, "--ff")) { NEXT(); a->ff = arg_int(argv[++i], k); if (a->ff < 1) aster_fail("--ff must be positive"); }
+        else if (!strcmp(k, "--context")) { NEXT(); a->context = arg_int(argv[++i], k); if (a->context < 1) aster_fail("--context must be positive"); }
         else if (!strcmp(k, "--port"))      { NEXT(); a->port = arg_int(argv[++i], "--port"); a->has_port = 1; }
         else if (!strcmp(k, "--help") || !strcmp(k, "-h")) { print_help(); exit(0); }
         else aster_fail("unknown option \"%s\". Run \"aster help\" for the list.", k);
@@ -180,6 +195,8 @@ static void parse_args(int argc, char **argv, Args *a, int start) {
     else aster_fail("--mode must be \"text\" or \"chat\" (got \"%s\")", a->mode);
     if (a->merges < 0 || a->merges > ASTER_MAX_MERGES)
         aster_fail("--merges must be between 0 and %d (got %d)", ASTER_MAX_MERGES, a->merges);
+    if (!isfinite(a->repetition_penalty) || a->repetition_penalty < 1.0f || a->repetition_penalty > 2.0f)
+        aster_fail("--repetition-penalty must be between 1 and 2");
 }
 
 /* --------------------------------------------------------- vocabulary -----
@@ -985,6 +1002,86 @@ static int cmd_selftest(void) {
         aster_model_free(m);
     }
 
+    /* Sampling regressions: the old top-k filter removed its best k-1 logits. */
+    {
+        GenParams gp;
+        gen_params_default(&gp);
+        gp.temperature = 1.0f;
+        gp.repetition_penalty = 1.0f;
+        const float logits[4] = { -3.0f, 3.0f, 2.0f, -2.0f };
+        uint32_t rng = 42;
+        int ok = 1, saw_best = 0, saw_second = 0;
+        gp.top_k = 1;
+        for (int i = 0; i < 100; ++i)
+            if (aster_sample_next(logits, 4, &gp, NULL, 0, &rng) != 1) ok = 0;
+        check(ok, "top-k 1 always selects the highest logit", &failures);
+        gp.top_k = 2;
+        ok = 1;
+        for (int i = 0; i < 200; ++i) {
+            int id = aster_sample_next(logits, 4, &gp, NULL, 0, &rng);
+            if (id == 1) saw_best = 1;
+            else if (id == 2) saw_second = 1;
+            else ok = 0;
+        }
+        check(ok && saw_best && saw_second, "top-k retains both best candidates and excludes the rest", &failures);
+        gp.temperature = 0.0f;
+        gp.repetition_penalty = 2.0f;
+        uint16_t seen[2] = {1, 1};
+        check(aster_sample_next(logits, 4, &gp, seen, 2, &rng) == 2,
+              "repetition penalty lowers positive logits once per distinct token", &failures);
+        const float negative[4] = {-4.0f, -1.0f, -1.5f, -5.0f};
+        check(aster_sample_next(negative, 4, &gp, seen, 2, &rng) == 2,
+              "repetition penalty also lowers negative logits", &failures);
+        gp.repetition_penalty = 1.0f;
+        check(aster_sample_next(logits, 4, &gp, seen, 2, &rng) == 1,
+              "penalty of one preserves the original greedy choice", &failures);
+    }
+
+    /* Context regressions use a byte vocabulary so the exact suffix is known. */
+    {
+        AsterConfig cfg;
+        aster_config_default(&cfg, &V0);
+        cfg.context = 16;
+        AsterModel *m = aster_model_new(&cfg, &V0, 5u, 0);
+        GenParams gp;
+        gen_params_default(&gp);
+        gp.max_new_tokens = 2;
+        char a[256], b[256];
+        int tr = 0, used = 0;
+        aster_generate(m, "discard this abcdefghij", &gp, a, sizeof a, NULL, NULL, &tr);
+        aster_generate(m, "abcdefghij", &gp, b, sizeof b, NULL, NULL, NULL);
+        check(tr && strcmp(a, b) == 0, "long prompts retain the newest tokens", &failures);
+        gp.system = "a system prompt longer than the entire context";
+        aster_generate(m, "hi", &gp, a, sizeof a, NULL, NULL, &tr);
+        check(tr && utf8_is_valid(a, strlen(a)), "oversized system text keeps markers within the context", &failures);
+        gp.system = NULL;
+        gp.previous_user = "a"; gp.previous_reply = "b"; gp.history_used = &used;
+        aster_generate(m, "hi", &gp, a, sizeof a, NULL, NULL, &tr);
+        check(used && !tr, "a complete previous exchange fits without truncating the message", &failures);
+        gp.previous_reply = "this exchange is too long";
+        aster_generate(m, "hi", &gp, a, sizeof a, NULL, NULL, &tr);
+        check(!used && !tr, "oversized history is omitted without truncating the current message", &failures);
+        /* Text continuations must condition on the raw prompt, not chat markers. */
+        for (int id = TOK_SYSTEM; id <= TOK_PAD; ++id)
+            for (int c = 0; c < cfg.d_model; ++c)
+                m->params[m->off.tok_emb + (size_t)id * cfg.d_model + c] = -40.0f;
+        uint16_t text_ids[5] = {'1', '.', '2', '3', '\n'};
+        AsterActs *acts = aster_acts_new(1, 5, &cfg);
+        aster_forward(m, acts, text_ids, NULL, NULL, NULL);
+        const float *lg = acts->logits + 4 * cfg.vocab;
+        int next = 0;
+        for (int i = 1; i < cfg.vocab; ++i) if (lg[i] > lg[next]) next = i;
+        uint16_t ref = (uint16_t)next;
+        tok_decode(&m->vocab, &ref, 1, b, sizeof b, 1);
+        gp.plain_text = 1; gp.max_new_tokens = 1;
+        gp.previous_user = NULL; gp.previous_reply = NULL;
+        aster_generate(m, "1.23\n", &gp, a, sizeof a, NULL, NULL, &tr);
+        check(strcmp(a, b) == 0 && !tr,
+              "plain-text generation matches a forward pass without chat markers", &failures);
+        aster_acts_free(acts);
+        aster_model_free(m);
+    }
+
     /* ---- greedy generation is deterministic, and honours the cap ---- */
     {
         AsterConfig cfg;
@@ -1098,6 +1195,7 @@ static int cmd_selftest(void) {
         GenParams gp;
         gen_params_default(&gp);
         gp.max_new_tokens = max_new;
+        gp.repetition_penalty = 1.0f; /* reference decode is unpenalized */
         gp.temperature = 0.0f;
         gp.seed = 1;
         size_t cap = aster_generate_out_cap(m);
@@ -1285,10 +1383,16 @@ static int cmd_selftest(void) {
             spec.n_paths = 1;
             spec.mode = ASTER_DATA_TEXT;
             spec.block = 64;
+            spec.stride = 17;
             spec.v = &V;
             char err[192];
             AsterDataset *d = dataset_build(&spec, err, sizeof err);
             if (d) {
+                int stride_ok = d->n_win == (int)((d->stream_len - 65) / 17 + 1);
+                for (int i = 0; i < d->n_win; ++i)
+                    if (d->win[i].start != (size_t)i * 17 || d->win[i].start + 64 >= d->stream_len)
+                        stride_ok = 0;
+                check(stride_ok, "text windows honor the requested stride and remain in bounds", &failures);
                 AsterConfig cfg;
                 aster_config_default(&cfg, &V);
                 AsterModel *m = aster_model_new(&cfg, &V, 3u, 0);
@@ -1460,6 +1564,7 @@ static int cmd_train(int argc, char **argv) {
     ts.paths = a.data;   ts.n_paths = a.n_data;   ts.block = a.block;
     vs.paths = a.valid; vs.n_paths = a.n_valid;   vs.block = a.block;
     ts.mode = vs.mode = (strcmp(a.mode, "chat") == 0) ? ASTER_DATA_CHAT : ASTER_DATA_TEXT;
+    ts.stride = vs.stride = a.stride;
 
     char err[512];
     puts("");
@@ -1484,6 +1589,15 @@ static int cmd_train(int argc, char **argv) {
 
     AsterConfig mcfg;
     aster_config_default(&mcfg, v);
+    if (a.layers) mcfg.n_layer = a.layers;
+    if (a.width) { mcfg.d_model = a.width; mcfg.d_ff = 4 * a.width; }
+    if (a.heads) mcfg.n_head = a.heads;
+    if (a.ff) mcfg.d_ff = a.ff;
+    if (a.context) mcfg.context = a.context;
+    if (aster_config_validate(&mcfg, err, sizeof err) != 0) {
+        aster_fail("invalid model dimensions: %s", err);
+        aster_vocab_free(v); free(v); return 2;
+    }
     int rc = aster_train(&tc, &mcfg, &ts, a.n_valid ? &vs : NULL, a.out, err, sizeof err);
     aster_vocab_free(v);
     free(v);
@@ -1521,13 +1635,18 @@ static int cmd_generate(int argc, char **argv) {
     if (a.has_seed) gp.seed = a.seed;
     else gp.seed = 1234u;
     gp.top_k = a.top_k;
+    gp.repetition_penalty = a.repetition_penalty;
+    gp.plain_text = a.has_mode && strcmp(a.mode, "text") == 0;
     gp.system = a.system;
 
     aster_info("model %s: %d parameters, %d-token context, %d tokens in the vocabulary "
                "(%d merges, %.2f bytes/token), trained %u step(s)",
                file_name_of(a.model), m->off.total, m->cfg.context, m->cfg.vocab,
                m->vocab.n_merges, m->vocab.bytes_per_token, step);
-    int budget = aster_prompt_budget_for(m, gp.max_new_tokens, a.system);
+    int reserve = gp.max_new_tokens < 1 ? 1 : gp.max_new_tokens;
+    if (reserve >= m->cfg.context) reserve = m->cfg.context - 1;
+    int budget = gp.plain_text ? m->cfg.context - reserve
+                              : aster_prompt_budget_for(m, gp.max_new_tokens, a.system);
     aster_info("sampling: %s, temperature %.2f, top_k %d, seed %u; at most %d prompt token(s) fit",
                gp.temperature <= 0.0f ? "greedy" : "stochastic",
                (double)gp.temperature, gp.top_k, gp.seed, budget);
@@ -1568,6 +1687,7 @@ static int cmd_serve(int argc, char **argv) {
     s.max_new_tokens = a.has_max_new ? a.max_new : ASTER_DEFAULT_MAX_NEW;
     s.temperature = a.has_temp ? a.temp : 0.0f;
     s.top_k = a.top_k;
+    s.repetition_penalty = a.repetition_penalty;
     s.system = a.system;
     s.seed = a.has_seed ? a.seed : 1234u;
 
@@ -1605,6 +1725,7 @@ static int cmd_eval(int argc, char **argv) {
     vs.block = a.block;
     vs.mode = (strcmp(a.mode, "chat") == 0) ? ASTER_DATA_CHAT : ASTER_DATA_TEXT;
     vs.v = &m->vocab;   /* the checkpoint's own merges; the model must use them */
+    vs.stride = a.stride;
 
     char err[512];
     AsterDataset *d = dataset_build(&vs, err, sizeof err);
