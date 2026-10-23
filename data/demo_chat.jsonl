@@ -899,3 +899,429 @@
 {"role":"assistant","content":"It means no checkpoint is loaded. You need to train one first."}
 {"role":"user","content":"What does model details show?"}
 {"role":"assistant","content":"Technical information about the loaded model: layers, parameters, context length, and generation settings."}
+{"role": "user", "content": "How do I write type-safe event handlers in TypeScript with React?"}
+{"role": "assistant", "content": "TypeScript's event types can be confusing because React wraps native DOM events in SyntheticEvents. Here's a practical reference."}
+{"role": "user", "content": "What is reinforcement learning?"}
+{"role": "assistant", "content": "An agent learns by interacting with an environment, receiving rewards for good actions and penalties for bad ones. State → action → reward → learn. Over millions of iterations, the agent learns which actions maximize cumulative reward."}
+{"role": "user", "content": "How do I design a schema for a tree/hierarchical structure?"}
+{"role": "assistant", "content": "There are four common approaches, each optimized for different query patterns."}
+{"role": "user", "content": "How do I write a compelling personal essay?"}
+{"role": "assistant", "content": "A personal essay uses your specific experience to illuminate something universal. It's not a diary entry — it's a crafted piece of writing that gives the reader something they didn't have before."}
+{"role": "user", "content": "What is a dead letter queue?"}
+{"role": "assistant", "content": "A queue that stores messages that failed processing after multiple retry attempts. Instead of losing the message or retrying forever, it's moved to the DLQ for investigation."}
+{"role": "user", "content": "What is infrastructure as code and why does it matter?"}
+{"role": "assistant", "content": "Infrastructure as Code (IaC) manages servers, networks, databases, and other infrastructure through configuration files rather than manual processes."}
+{"role": "user", "content": "What is the difference between a compiler and an interpreter?"}
+{"role": "assistant", "content": "A compiler translates the entire source code into machine code (or bytecode) before execution. An interpreter executes source code line by line."}
+{"role": "user", "content": "What is the difference between REST and gRPC?"}
+{"role": "assistant", "content": "REST and gRPC are two approaches to designing APIs. REST uses HTTP/JSON and is ubiquitous. gRPC uses HTTP/2 and Protocol Buffers and is optimized for performance."}
+{"role": "user", "content": "What is semantic HTML?"}
+{"role": "assistant", "content": "Using HTML elements that convey meaning, not just appearance. `<nav>` instead of `<div class='nav'>`. `<article>` instead of `<div>`. `<button>` instead of `<div onclick>`."}
+{"role": "user", "content": "What is the difference between git stash and git branch?"}
+{"role": "assistant", "content": "Stash: temporarily shelve uncommitted changes to work on something else, then reapply later. `git stash` saves changes, `git stash pop` restores them. Good for quick context switches."}
+{"role": "user", "content": "What is the N+1 query problem and how do I fix it?"}
+{"role": "assistant", "content": "The N+1 problem occurs when your code makes 1 query to fetch a list of N items, then N additional queries to fetch related data for each item. It's the most common ORM performance problem."}
+{"role": "user", "content": "What is an abstract class?"}
+{"role": "assistant", "content": "A class that can't be instantiated directly — it defines an interface that subclasses must implement."}
+{"role": "user", "content": "What is a union-find (disjoint set) data structure?"}
+{"role": "assistant", "content": "Tracks elements partitioned into non-overlapping sets. Two key operations: `find(x)` — which set does x belong to? `union(x, y)` — merge the sets containing x and y."}
+{"role": "user", "content": "What is technical interviewing and how should I prepare?"}
+{"role": "assistant", "content": "Technical interviews vary by company but typically include coding, system design, and behavioral components."}
+{"role": "user", "content": "Explain topological sort and when you'd use it."}
+{"role": "assistant", "content": "Topological sort orders vertices in a directed acyclic graph (DAG) such that for every edge A→B, A comes before B."}
+{"role": "user", "content": "What are CRDTs and when would I use one?"}
+{"role": "assistant", "content": "CRDTs (Conflict-free Replicated Data Types) are data structures that can be independently updated on multiple replicas and automatically merged without conflicts. They enable eventual consistency without coordination."}
+{"role": "user", "content": "'no space left on device' in Docker"}
+{"role": "assistant", "content": "Docker accumulates unused images, containers, and volumes over time."}
+{"role": "user", "content": "What is the event loop in JavaScript?"}
+{"role": "assistant", "content": "The event loop is JavaScript's mechanism for handling asynchronous operations in a single-threaded environment."}
+{"role": "user", "content": "How do I implement a debounce function in JavaScript?"}
+{"role": "assistant", "content": "Debounce delays execution until the user stops triggering an event for a specified period. Common for search-as-you-type, window resize handlers, and form auto-save."}
+{"role": "user", "content": "How do I use `zip()` in Python?"}
+{"role": "assistant", "content": "Iterate over multiple iterables in parallel."}
+{"role": "user", "content": "How does Go's error handling work and why is it so verbose compared to Python?"}
+{"role": "assistant", "content": "Go uses explicit return values for errors instead of exceptions. This is a deliberate design choice that trades verbosity for clarity about what can fail."}
+{"role": "user", "content": "How do I exit a Python virtual environment?"}
+{"role": "assistant", "content": "`deactivate` Just type `deactivate` in your terminal. It removes the venv's `bin/` directory from your PATH."}
+{"role": "user", "content": "What is a lambda function?"}
+{"role": "assistant", "content": "A lambda (anonymous function) is a small, unnamed function defined inline."}
+{"role": "user", "content": "How do I use `collections.defaultdict` in Python?"}
+{"role": "assistant", "content": "Dict that auto-creates missing keys with a factory."}
+{"role": "user", "content": "I keep seeing `fmt.Errorf(\"foo: %w\", err)` everywhere. Why %w and not %v? And when would I use errors.Join vs %w?"}
+{"role": "assistant", "content": "`%w` keeps the error chain intact so callers can inspect with `errors.Is` / `errors.As`. `%v` just formats a string and **breaks the chain** — once you do that, no caller can recover the original error type."}
+{"role": "user", "content": "What is zero-trust security architecture?"}
+{"role": "assistant", "content": "Zero trust is a security model based on the principle: \"never trust, always verify.\" Instead of assuming everything inside the network perimeter is safe, every request is authenticated, authorized, and encrypted regardless of origin."}
+{"role": "user", "content": "What is the difference between a set and a list?"}
+{"role": "assistant", "content": "A **list** is ordered and allows duplicates. Access by index is O(1). Searching is O(n). Good for: sequences, maintaining order, indexed access."}
+{"role": "user", "content": "How do I handle large CSV files that don't fit in memory?"}
+{"role": "assistant", "content": "Process them in chunks instead of loading the entire file."}
+{"role": "user", "content": "How does garbage collection work?"}
+{"role": "assistant", "content": "Garbage collection (GC) automatically frees memory that's no longer reachable by the program, preventing memory leaks."}
+{"role": "user", "content": "What is technical writing style?"}
+{"role": "assistant", "content": "Clear, precise, unambiguous communication of complex information. Key principles: active voice over passive, short sentences, concrete examples, consistent terminology, and progressive disclosure (simple first, details after)."}
+{"role": "user", "content": "What is `async`/`await` in JavaScript?"}
+{"role": "assistant", "content": "Syntactic sugar for Promises that makes async code look synchronous."}
+{"role": "user", "content": "How does Python's Global Interpreter Lock (GIL) actually work and when does it matter?"}
+{"role": "assistant", "content": "The GIL is a mutex that protects access to Python objects, preventing multiple threads from executing Python bytecodes simultaneously. It's CPython's mechanism for thread safety, and understanding when it matters (and when it doesn't) saves enormous confusion."}
+{"role": "user", "content": "What is the KISS principle in software engineering?"}
+{"role": "assistant", "content": "**KISS: Keep It Simple, Stupid.** The simplest solution that works is usually the best one. Complexity should be justified by requirements, not by cleverness. If a junior developer can't understand your code in 5 minutes, it's probably too complex."}
+{"role": "user", "content": "What is an API rate limiter and how do I implement one?"}
+{"role": "assistant", "content": "A rate limiter restricts how many requests a client can make in a given time window. It protects your service from abuse, overload, and ensures fair usage."}
+{"role": "user", "content": "What is GraphQL and when should I use it instead of REST?"}
+{"role": "assistant", "content": "GraphQL is a query language for APIs that lets clients request exactly the data they need in a single request."}
+{"role": "user", "content": "What does HTTP status code 429 Too Many Requests mean?"}
+{"role": "assistant", "content": "Rate limit exceeded. Include `Retry-After` header telling the client when to try again. Clients should implement exponential backoff."}
+{"role": "user", "content": "Is the continuum hypothesis 'true,' 'false,' or 'undecidable'? People say all three and I'm thoroughly confused."}
+{"role": "assistant", "content": "All three answers are defensible — they answer *different questions*. Here's the disentangling."}
+{"role": "user", "content": "How do containers differ from virtual machines?"}
+{"role": "assistant", "content": "Containers and VMs both provide isolation, but at fundamentally different levels of the stack. Understanding the difference clarifies when to use each."}
+{"role": "user", "content": "What is the pub/sub pattern?"}
+{"role": "assistant", "content": "Publish-subscribe decouples message producers from consumers through topics/channels. Publishers send messages to a topic without knowing who's listening. Subscribers listen to topics without knowing who's publishing."}
+{"role": "user", "content": "Is homework effective?"}
+{"role": "assistant", "content": "The research on homework is more nuanced than either \"homework is essential\" or \"homework is useless\" camps suggest."}
+{"role": "user", "content": "Isn't multiple testing correction (Bonferroni) overly conservative? What's the alternative?"}
+{"role": "assistant", "content": "\"Conservative\" is a property of a procedure relative to a goal. Whether Bonferroni is *too* conservative depends on what you're trying to do — and reflexively reaching for the next-most-powerful tool can be a mistake if the guarantee changes."}
+{"role": "user", "content": "What is the difference between a min-heap and a priority queue?"}
+{"role": "assistant", "content": "A priority queue is an abstract data type — it supports `insert` and `extract_min` (or `extract_max`). A min-heap is one way to implement it."}
+{"role": "user", "content": "How do I set up a multi-stage Docker build?"}
+{"role": "assistant", "content": "Multi-stage builds produce smaller images by separating build dependencies from runtime."}
+{"role": "user", "content": "What is a pull request?"}
+{"role": "assistant", "content": "A request to merge code changes from one branch into another, with a review process. The developer creates a PR, reviewers examine the code, leave comments, request changes, and eventually approve. The PR is then merged."}
+{"role": "user", "content": "My JavaScript application has a memory leak in the browser. How do I find it?"}
+{"role": "assistant", "content": "Browser memory leaks typically come from DOM references that prevent garbage collection. Chrome DevTools is your primary diagnostic tool."}
+{"role": "user", "content": "How do I use `str.split()` in Python?"}
+{"role": "assistant", "content": "Splits a string into a list by a delimiter. ```python 'a,b,c'.split(',') # ['a', 'b', 'c'] 'hello world'.split() # ['hello', 'world'] (splits on whitespace) 'a::b::c'.split('::', 1) # ['a', 'b::c'] (maxsplit=1) ```"}
+{"role": "user", "content": "What is observability and how does it differ from monitoring?"}
+{"role": "assistant", "content": "Monitoring tells you when something is wrong. Observability tells you WHY."}
+{"role": "user", "content": "What is idempotency in distributed systems?"}
+{"role": "assistant", "content": "An operation is idempotent if performing it multiple times has the same effect as once. Critical for retry logic: if a network call times out, you need to safely retry without duplicating the effect."}
+{"role": "user", "content": "What's the difference between npm and yarn?"}
+{"role": "assistant", "content": "npm and yarn are both used as package managers but serve different needs. The choice depends on your specific requirements, team expertise, and project constraints. Could you tell me more about your use case so I can give a specific recommendation?"}
+{"role": "user", "content": "How do I convert a string to an integer?"}
+{"role": "assistant", "content": "`int('42')` returns `42`. Raises `ValueError` if the string isn't a valid integer. For floats: `float('3.14')`."}
+{"role": "user", "content": "How do I implement a custom iterator in Python?"}
+{"role": "assistant", "content": "An iterator implements `__iter__` (returns self) and `__next__` (returns next value or raises StopIteration). But in practice, generators are usually simpler."}
+{"role": "user", "content": "How do I use `any() and all()` in Python?"}
+{"role": "assistant", "content": "Check if any/all elements satisfy a condition."}
+{"role": "user", "content": "What is a data lake vs a data warehouse?"}
+{"role": "assistant", "content": "**Data warehouse:** Structured, cleaned, processed data organized for analysis. Schema-on-write — data is transformed before loading. SQL queries. Used by: business analysts, dashboards."}
+{"role": "user", "content": "What are Python context managers and how do I write custom ones?"}
+{"role": "assistant", "content": "Context managers (the `with` statement) ensure setup and cleanup code runs even if exceptions occur. They're Python's answer to resource management."}
+{"role": "user", "content": "What is the difference between stateful and stateless services?"}
+{"role": "assistant", "content": "A stateless service doesn't store client state between requests. Each request contains all information needed to process it. A stateful service maintains state across requests."}
+{"role": "user", "content": "My Python import works in the REPL but fails when I run my script."}
+{"role": "assistant", "content": "This is almost always a path issue. Python's import system searches `sys.path`, which differs between the REPL and scripts."}
+{"role": "user", "content": "What is a memory leak and how do I find one in a garbage-collected language?"}
+{"role": "assistant", "content": "A memory leak occurs when a program retains references to objects it no longer needs, preventing the garbage collector from reclaiming them. In GC'd languages, it's not that memory isn't freed — it's that the program unintentionally keeps it reachable."}
+{"role": "user", "content": "What is a health check endpoint?"}
+{"role": "assistant", "content": "An endpoint (typically `GET /health` or `GET /healthz`) that returns the application's health status. Used by load balancers, container orchestrators, and monitoring systems to determine if the application can serve traffic."}
+{"role": "user", "content": "What is dynamic programming?"}
+{"role": "assistant", "content": "Solving problems by breaking them into overlapping subproblems, solving each once, and storing results."}
+{"role": "user", "content": "I'm building a SaaS product with a small team (3 engineers). Should we use microservices?"}
+{"role": "assistant", "content": "No. With 3 engineers, microservices will slow you down significantly."}
+{"role": "user", "content": "What are feature flags and how do I implement them?"}
+{"role": "assistant", "content": "Feature flags let you enable/disable features without deploying code."}
+{"role": "user", "content": "How do I handle file I/O in Python efficiently?"}
+{"role": "assistant", "content": "The approach depends on file size and whether you need the whole file at once."}
+{"role": "user", "content": "What are SLIs, SLOs, and error budgets, and how do they change how teams operate?"}
+{"role": "assistant", "content": "SLIs, SLOs, and error budgets are a framework from Google's SRE practice for making reliability decisions based on data rather than fear."}
+{"role": "user", "content": "How does consistent hashing work?"}
+{"role": "assistant", "content": "Consistent hashing distributes keys across nodes so that adding/removing a node only remaps ~1/n of keys (vs all keys with modular hashing)."}
+{"role": "user", "content": "How do I use `git reflog`?"}
+{"role": "assistant", "content": "Shows the history of where HEAD has pointed — including commits \"lost\" by resets and rebases."}
+{"role": "user", "content": "What is code coverage?"}
+{"role": "assistant", "content": "The percentage of code lines/branches/functions exercised by tests. 80% line coverage means 80% of lines were executed during testing."}
+{"role": "user", "content": "What makes a good teacher?"}
+{"role": "assistant", "content": "Education research has identified several factors that consistently predict effective teaching, though the picture is more complex than simple checklists suggest."}
+{"role": "user", "content": "Why do minor keys sound sad?"}
+{"role": "assistant", "content": "This is a surprisingly deep question that touches on physics, psychology, culture, and neuroscience — and the honest answer is that we don't fully know."}
+{"role": "user", "content": "What is a reverse proxy and why is Nginx so common?"}
+{"role": "assistant", "content": "A reverse proxy sits between clients and backend servers, forwarding requests on behalf of clients. Unlike a forward proxy (which acts on behalf of clients), a reverse proxy acts on behalf of servers."}
+{"role": "user", "content": "What is the difference between SQL and NoSQL databases?"}
+{"role": "assistant", "content": "SQL and NoSQL databases optimize for different data models, query patterns, and scaling strategies. The choice depends on your specific requirements, not a general \"one is better\" judgment."}
+{"role": "user", "content": "What is `.gitignore`?"}
+{"role": "assistant", "content": "A file that tells Git which files and directories to ignore (not track)."}
+{"role": "user", "content": "What are the ethical implications of facial recognition technology?"}
+{"role": "assistant", "content": "Facial recognition sits at the intersection of several ethical concerns: privacy, accuracy, consent, power, and surveillance."}
+{"role": "user", "content": "How do I implement exponential backoff?"}
+{"role": "assistant", "content": "Exponential backoff is a retry strategy where wait times increase exponentially between attempts."}
+{"role": "user", "content": "How do I use Python descriptors?"}
+{"role": "assistant", "content": "Descriptors are objects that define `__get__`, `__set__`, or `__delete__` methods. They control attribute access on classes — this is how `property`, `classmethod`, and `staticmethod` work internally."}
+{"role": "user", "content": "Why is the exponential distribution 'memoryless,' and is that a useful property or a strange artifact?"}
+{"role": "assistant", "content": "Memorylessness has a one-line statement and a one-line consequence, and they're worth keeping separate."}
+{"role": "user", "content": "What makes a poem work? What separates good poetry from bad?"}
+{"role": "assistant", "content": "This is a question poets argue about endlessly, which is part of what makes poetry alive. But there are principles that most serious poets and critics would agree on."}
+{"role": "user", "content": "What is the factory pattern in simple terms?"}
+{"role": "assistant", "content": "Instead of calling constructors directly, use a function that decides which class to create."}
+{"role": "user", "content": "What is CORS and why does it exist?"}
+{"role": "assistant", "content": "CORS (Cross-Origin Resource Sharing) is a browser security mechanism that restricts web pages from making requests to a different origin (domain, port, or protocol)."}
+{"role": "user", "content": "What is tree shaking?"}
+{"role": "assistant", "content": "A build optimization that removes unused code from the final bundle. If you import one function from a library, tree shaking eliminates the rest of the library."}
+{"role": "user", "content": "What is the two-pointer technique?"}
+{"role": "assistant", "content": "Two pointers iterate through a sorted array from both ends (or two different speeds), avoiding nested loops."}
+{"role": "user", "content": "Prove that every group of order 255 is cyclic. I want to see the full Sylow argument, not just a citation of the classification."}
+{"role": "assistant", "content": "**Claim.** Every group $G$ of order $255 = 3 \\cdot 5 \\cdot 17$ is cyclic."}
+{"role": "user", "content": "What is the difference between GET and POST in HTTP?"}
+{"role": "assistant", "content": "**GET:** Retrieve data. No request body. Idempotent (calling twice has same effect). Cacheable. Parameters in URL query string (visible in browser history, logs)."}
+{"role": "user", "content": "What is the difference between encryption, hashing, and encoding?"}
+{"role": "assistant", "content": "These are three fundamentally different operations that are commonly confused."}
+{"role": "user", "content": "What is type narrowing in TypeScript?"}
+{"role": "assistant", "content": "TypeScript narrows types within conditional blocks based on runtime checks."}
+{"role": "user", "content": "What are the trade-offs between microservices and monoliths?"}
+{"role": "assistant", "content": "This is one of the most over-simplified debates in software engineering. The honest answer is: it depends on your team size, domain complexity, and operational maturity."}
+{"role": "user", "content": "What is the composition over inheritance principle?"}
+{"role": "assistant", "content": "Prefer combining simple objects (composition) over building complex inheritance hierarchies. Instead of `class FlyingFish extends Fish implements Flyable`, compose behaviors: `fish = Entity(behaviors=[swim, fly])`."}
+{"role": "user", "content": "How do I debug a Python application that hangs (stops responding)?"}
+{"role": "assistant", "content": "A hung process is either deadlocked, blocked on I/O, stuck in an infinite loop, or waiting on something that will never complete."}
+{"role": "user", "content": "What are materialized views and when should I use them?"}
+{"role": "assistant", "content": "A materialized view is a precomputed query result stored as a table. It trades storage and freshness for read performance."}
+{"role": "user", "content": "How does DNS resolution actually work, step by step?"}
+{"role": "assistant", "content": "DNS translates human-readable domain names to IP addresses. The process is a hierarchical lookup involving multiple servers, with caching at every level."}
+{"role": "user", "content": "What is blue-green deployment and how does it work?"}
+{"role": "assistant", "content": "Blue-green deployment eliminates downtime during releases by running two identical environments and switching traffic between them."}
+{"role": "user", "content": "What are database migrations and how should I manage them?"}
+{"role": "assistant", "content": "Database migrations are versioned, incremental changes to your database schema. They ensure every environment (dev, staging, production) has the same schema, and changes can be applied and rolled back systematically."}
+{"role": "user", "content": "What are environment variables and why should I use them for configuration?"}
+{"role": "assistant", "content": "Environment variables are key-value pairs set in the process environment, accessible by any running program. They're the standard way to pass configuration — especially secrets — to applications."}
+{"role": "user", "content": "What is a caching layer?"}
+{"role": "assistant", "content": "A fast storage tier (Redis, Memcached, in-memory) between your application and a slower data source (database, external API). The application checks the cache first; on a miss, fetches from the source and populates the cache."}
+{"role": "user", "content": "How do I write good tests?"}
+{"role": "assistant", "content": "Good tests verify behavior, catch regressions, and serve as documentation. Bad tests are brittle, slow, and test implementation details."}
+{"role": "user", "content": "How should I handle secrets and credentials in my application?"}
+{"role": "assistant", "content": "Secrets (API keys, database passwords, encryption keys) require specific handling at every stage of the development lifecycle."}
+{"role": "user", "content": "Show that for any prime p > 3, p^2 ≡ 1 (mod 24). I've verified this for small primes but I can't see the structure."}
+{"role": "assistant", "content": "The structure is beautiful, and the proof reveals that primality is not really what's doing the work."}
+{"role": "user", "content": "What are the most important SQL query optimization techniques?"}
+{"role": "assistant", "content": "Query optimization follows a consistent diagnostic process: measure, understand the plan, fix the bottleneck."}
+{"role": "user", "content": "What are idempotency keys and why do APIs need them?"}
+{"role": "assistant", "content": "An idempotency key ensures that retrying a request produces the same result as the original — preventing duplicate charges, duplicate orders, or duplicate records."}
+{"role": "user", "content": "What does HTTP status code 301 Moved Permanently mean?"}
+{"role": "assistant", "content": "The resource has permanently moved to a new URL. Browsers and search engines cache this. Use for domain changes and URL restructuring."}
+{"role": "user", "content": "What is the difference between PUT and POST?"}
+{"role": "assistant", "content": "POST creates a new resource. PUT replaces an existing resource (or creates it at a specified URL)."}
+{"role": "user", "content": "What is the KISS principle?"}
+{"role": "assistant", "content": "Keep It Simple, Stupid. The simplest solution that works is usually the best. Complexity is a cost — every abstraction layer, every indirection, every clever trick makes the code harder to understand, debug, and maintain."}
+{"role": "user", "content": "I'm getting `TypeError: 'NoneType' object is not iterable`. What does it mean and how do I fix it?"}
+{"role": "assistant", "content": "You're trying to iterate over `None`. This usually means a function returned `None` instead of a list."}
+{"role": "user", "content": "Solve y'' + 4y' + 4y = e^(-2x) and explain why the method of undetermined coefficients needs modification here."}
+{"role": "assistant", "content": "Let's start by understanding why this problem is trickier than it first appears."}
+{"role": "user", "content": "What is eventual consistency?"}
+{"role": "assistant", "content": "In a distributed system, eventual consistency means all replicas will converge to the same value given enough time, but reads may return stale data in the interim."}
+{"role": "user", "content": "What is ACID and why does it matter?"}
+{"role": "assistant", "content": "ACID is the set of properties that guarantee database transactions are reliable. Each property prevents a specific category of data corruption."}
+{"role": "user", "content": "What are file descriptors in Linux and why do they matter?"}
+{"role": "assistant", "content": "A file descriptor (fd) is an integer that represents an open resource — files, sockets, pipes, devices, or anything the kernel provides as a file-like interface. Understanding fds explains a huge amount of how Linux programs work."}
+{"role": "user", "content": "What is Infrastructure as Code (IaC)?"}
+{"role": "assistant", "content": "IaC manages infrastructure (servers, networks, databases) through code files instead of manual configuration."}
+{"role": "user", "content": "What is a stored procedure?"}
+{"role": "assistant", "content": "A precompiled SQL program stored in the database that can be called by name. Like a function but runs inside the database engine."}
+{"role": "user", "content": "What's the walrus operator?"}
+{"role": "assistant", "content": "`:=` assigns and returns a value in one expression (Python 3.8+): ```python if (n := len(data)) > 10: print(f'Too long: {n}') ```"}
+{"role": "user", "content": "How do I write effective unit tests?"}
+{"role": "assistant", "content": "Good tests are fast, isolated, readable, and test behavior rather than implementation. Here are the principles that matter most."}
+{"role": "user", "content": "What is the event loop in JavaScript and Node.js?"}
+{"role": "assistant", "content": "The event loop is the mechanism that allows JavaScript to perform non-blocking I/O despite being single-threaded. Understanding it explains both JavaScript's power and its pitfalls."}
+{"role": "user", "content": "What does HTTP status code 409 Conflict mean?"}
+{"role": "assistant", "content": "The request conflicts with the current state. Common for: duplicate creation (email already exists), concurrent edit conflicts, version mismatches."}
+{"role": "user", "content": "What is recursion and when should I use it?"}
+{"role": "assistant", "content": "Recursion is when a function calls itself to solve a problem by breaking it into smaller instances of the same problem."}
+{"role": "user", "content": "How should I version a REST API?"}
+{"role": "assistant", "content": "API versioning manages breaking changes while keeping existing clients working. There are three common approaches."}
+{"role": "user", "content": "What is a race condition?"}
+{"role": "assistant", "content": "A race condition occurs when the outcome depends on the timing of concurrent operations."}
+{"role": "user", "content": "What is a vector database?"}
+{"role": "assistant", "content": "A vector database stores and searches high-dimensional vectors (embeddings) efficiently using approximate nearest neighbor (ANN) algorithms."}
+{"role": "user", "content": "What is DNS caching and TTL?"}
+{"role": "assistant", "content": "DNS records include a TTL (Time To Live) value in seconds that tells caches how long to store the result."}
+{"role": "user", "content": "How do I use `git stash`?"}
+{"role": "assistant", "content": "Temporarily saves uncommitted changes so you can switch branches."}
+{"role": "user", "content": "How do I prevent CSRF attacks?"}
+{"role": "assistant", "content": "CSRF (Cross-Site Request Forgery) tricks a user's browser into making unwanted requests to a site they're authenticated with."}
+{"role": "user", "content": "How do I use `asyncio.gather` vs `asyncio.TaskGroup`?"}
+{"role": "assistant", "content": "`asyncio.gather` and `TaskGroup` (Python 3.11+) both run coroutines concurrently, but they handle errors differently."}
+{"role": "user", "content": "What is embeddings and how are they used?"}
+{"role": "assistant", "content": "Embeddings are dense vector representations of data (text, images, etc.) where similar items are close together in vector space."}
+{"role": "user", "content": "Write a git commit message for renaming a database column from 'userName' to 'username'."}
+{"role": "assistant", "content": "Rename userName column to username for consistency All other columns use lowercase snake_case. This aligns the user table with the project's naming convention. Includes migration to rename the column without data loss."}
+{"role": "user", "content": "What is type coercion in JavaScript?"}
+{"role": "assistant", "content": "JavaScript automatically converts types in certain operations, often producing surprising results."}
+{"role": "user", "content": "What are magic numbers and why are they bad?"}
+{"role": "assistant", "content": "Unnamed numeric constants in code. `if (age > 18)` — what does 18 mean? Legal drinking age? Voting age? Adult classification threshold? Replace with named constants: `MINIMUM_VOTING_AGE = 18`. Benefits: self-documenting, single point of change, searchable."}
+{"role": "user", "content": "What are Python type hints and why should I use them?"}
+{"role": "assistant", "content": "Type hints annotate function signatures and variables with expected types. They don't affect runtime behavior — Python remains dynamically typed — but they enable static analysis tools (mypy, pyright) to catch bugs before running the code."}
+{"role": "user", "content": "What are design patterns and do I need to know them?"}
+{"role": "assistant", "content": "Design patterns are named, reusable solutions to recurring software design problems. The Gang of Four (GoF) book cataloged 23 in 1994."}
+{"role": "user", "content": "How do I use `curl`?"}
+{"role": "assistant", "content": "Make HTTP requests from the command line."}
+{"role": "user", "content": "Explain why merge sort is O(n log n)."}
+{"role": "assistant", "content": "Let's derive this from the algorithm structure."}
+{"role": "user", "content": "What makes a good API documentation?"}
+{"role": "assistant", "content": "Good API documentation gets developers from zero to their first successful API call as fast as possible, then supports them as they build increasingly complex integrations."}
+{"role": "user", "content": "What is a socket?"}
+{"role": "assistant", "content": "A socket is an endpoint for sending/receiving data across a network. It's identified by an IP address and a port number."}
+{"role": "user", "content": "What is the sliding window technique?"}
+{"role": "assistant", "content": "Sliding window maintains a window (subarray/substring) that moves through the data, updating the answer incrementally."}
+{"role": "user", "content": "What's the difference between Redis and Memcached?"}
+{"role": "assistant", "content": "Redis and Memcached are both used as caching systems but serve different needs. The choice depends on your specific requirements, team expertise, and project constraints. Could you tell me more about your use case so I can give a specific recommendation?"}
+{"role": "user", "content": "What does HTTP status code 204 No Content mean?"}
+{"role": "assistant", "content": "Request succeeded but there's nothing to return. Common for DELETE operations and successful updates that don't return the modified resource."}
+{"role": "user", "content": "How do I reverse a string?"}
+{"role": "assistant", "content": "`'hello'[::-1]` returns `'olleh'`. The `[::-1]` slice means start:end:step with step -1."}
+{"role": "user", "content": "What is the difference between a library and a framework?"}
+{"role": "assistant", "content": "A library provides functions you call. A framework calls your code."}
+{"role": "user", "content": "What is canary deployment?"}
+{"role": "assistant", "content": "Rolling out a change to a small percentage of users first, monitoring for problems, then gradually increasing to 100%."}
+{"role": "user", "content": "How do I count occurrences of each word in a string?"}
+{"role": "assistant", "content": "```python from collections import Counter text = 'the cat sat on the mat the cat' counts = Counter(text.split()) # Counter({'the': 3, 'cat': 2, 'sat': 1, 'on': 1, 'mat': 1}) counts.most_common(2) # [('the', 3), ('cat', 2)] ```"}
+{"role": "user", "content": "What is the mediator pattern?"}
+{"role": "assistant", "content": "The mediator pattern reduces direct connections between components by routing communication through a central mediator. Instead of N components each knowing about N-1 others, each component knows only about the mediator."}
+{"role": "user", "content": "What are the trade-offs of monorepo vs polyrepo?"}
+{"role": "assistant", "content": "**Monorepo** (single repo, multiple projects): atomic cross-project changes, shared tooling, no version mismatch. But: large repo size, complex builds, everyone sees everything."}
+{"role": "user", "content": "What are the most common web application security vulnerabilities and how do I prevent them?"}
+{"role": "assistant", "content": "The OWASP Top 10 is the standard reference, but I'll focus on the vulnerabilities that actually cause breaches most often, with concrete mitigations."}
+{"role": "user", "content": "What is WebAssembly (WASM)?"}
+{"role": "assistant", "content": "WebAssembly is a binary instruction format that runs in web browsers alongside JavaScript. It enables near-native performance for computationally intensive tasks."}
+{"role": "user", "content": "What is a heap data structure?"}
+{"role": "assistant", "content": "A binary tree where every parent is smaller (min-heap) or larger (max-heap) than its children. The root is always the minimum (or maximum) element."}
+{"role": "user", "content": "What is a webhook retry strategy?"}
+{"role": "assistant", "content": "When a webhook delivery fails (timeout, 5xx error), the sender should retry with exponential backoff."}
+{"role": "user", "content": "How do I structure logging for a production application?"}
+{"role": "assistant", "content": "Good logging is the difference between debugging a production issue in 5 minutes and debugging it in 5 hours."}
+{"role": "user", "content": "What is Docker Compose and when should I use it vs Kubernetes?"}
+{"role": "assistant", "content": "Docker Compose defines and runs multi-container applications with a single YAML file. It's for development and small deployments, not production orchestration at scale."}
+{"role": "user", "content": "What is amortized analysis? Give an example."}
+{"role": "assistant", "content": "Amortized analysis determines the average cost per operation over a worst-case sequence of operations. It's different from average-case analysis (which assumes random inputs)."}
+{"role": "user", "content": "What is the difference between TCP and HTTP?"}
+{"role": "assistant", "content": "TCP and HTTP operate at different layers of the network stack and solve different problems."}
+{"role": "user", "content": "How do I implement the observer pattern in Python?"}
+{"role": "assistant", "content": "The observer pattern lets objects subscribe to events from another object. Python's first-class functions make this clean."}
+{"role": "user", "content": "What is the difference between a process and a container?"}
+{"role": "assistant", "content": "A **process** is a running program instance managed by the OS. It has its own memory space, file descriptors, and PID. Multiple processes can run on the same OS."}
+{"role": "user", "content": "Compare compactness and completeness for me. I keep mixing them up because they both feel like 'the space doesn't have any holes.'"}
+{"role": "assistant", "content": "Your intuition (\"no holes\") is correct for completeness but only half-correct for compactness. Compactness is \"no holes **and** nowhere to run.\" That's the cleanest way to keep them apart."}
+{"role": "user", "content": "What is Docker networking and how do containers communicate?"}
+{"role": "assistant", "content": "Docker creates virtual networks that allow containers to communicate with each other and the outside world."}
+{"role": "user", "content": "What is a priority queue?"}
+{"role": "assistant", "content": "A data structure where each element has a priority and the highest-priority element is always dequeued first. Implemented with a heap for O(log n) insert and O(log n) extract-min/max."}
+{"role": "user", "content": "What is Agile development?"}
+{"role": "assistant", "content": "Agile is a set of principles for software development that emphasize iterative delivery, customer collaboration, and adaptability over rigid planning."}
+{"role": "user", "content": "What is an enum and when should I use one?"}
+{"role": "assistant", "content": "An enumeration is a fixed set of named constants. Use when a variable has a known, limited set of valid values."}
+{"role": "user", "content": "What is the difference between threads, processes, and coroutines?"}
+{"role": "assistant", "content": "These are three different mechanisms for concurrent execution, each with different tradeoffs in isolation, overhead, and parallelism."}
+{"role": "user", "content": "Explain Union-Find (Disjoint Set Union)."}
+{"role": "assistant", "content": "Union-Find tracks which elements belong to the same group. Two operations: `find(x)` returns x's group, `union(x, y)` merges two groups."}
+{"role": "user", "content": "How does HTTP/3 differ from HTTP/2 and why does it use QUIC?"}
+{"role": "assistant", "content": "HTTP/3 replaces TCP with QUIC (a UDP-based transport protocol) to eliminate head-of-line blocking and reduce connection setup latency."}
+{"role": "user", "content": "What is the builder pattern and when is it useful?"}
+{"role": "assistant", "content": "The builder pattern constructs complex objects step by step, separating construction from representation. It's useful when an object has many optional parameters."}
+{"role": "user", "content": "What does HTTP status code 422 Unprocessable Entity mean?"}
+{"role": "assistant", "content": "The request is well-formed but semantically invalid. Used when the JSON is valid but the business logic rejects it: age can't be negative, end date before start date."}
+{"role": "user", "content": "What is a binary search and when can I use it?"}
+{"role": "assistant", "content": "Binary search finds an element in a sorted collection by repeatedly halving the search space. It's O(log n) — finding an element in a billion-item sorted array takes at most ~30 comparisons."}
+{"role": "user", "content": "What is an abstract syntax tree (AST)?"}
+{"role": "assistant", "content": "A tree representation of source code's structure, stripping away syntax details (parentheses, semicolons) and preserving meaning."}
+{"role": "user", "content": "How do I use `functools.lru_cache` effectively?"}
+{"role": "assistant", "content": "`lru_cache` memoizes function results based on arguments. It's the easiest way to add caching to pure functions."}
+{"role": "user", "content": "How do I write a good technical blog post?"}
+{"role": "assistant", "content": "Technical blog posts that people actually read follow a pattern: they solve a specific problem the reader has."}
+{"role": "user", "content": "How do I choose between REST, GraphQL, and gRPC?"}
+{"role": "assistant", "content": "Each protocol serves different use cases. The choice depends on your clients, performance requirements, and team expertise."}
+{"role": "user", "content": "What is the CAP theorem and what does it actually mean in practice?"}
+{"role": "assistant", "content": "The CAP theorem (Brewer, 2000) states that a distributed system can provide at most two of three guarantees simultaneously: Consistency, Availability, and Partition tolerance."}
+{"role": "user", "content": "What is a hash collision?"}
+{"role": "assistant", "content": "When two keys hash to the same array index. Resolved by chaining (linked list at each index) or open addressing (probe for next empty slot)."}
+{"role": "user", "content": "I'm getting `KeyError: 'X'`. What does it mean and how do I fix it?"}
+{"role": "assistant", "content": "You accessed a dictionary key that doesn't exist."}
+{"role": "user", "content": "What is Write-Ahead Logging (WAL) and why do databases use it?"}
+{"role": "assistant", "content": "WAL is the mechanism that makes database transactions durable and recoverable. It's how databases guarantee that committed data survives crashes."}
+{"role": "user", "content": "What is the difference between latency and throughput?"}
+{"role": "assistant", "content": "**Latency:** How long one operation takes (milliseconds). The time from sending a request to receiving a response."}
+{"role": "user", "content": "What is dependency inversion principle?"}
+{"role": "assistant", "content": "High-level modules should not depend on low-level modules. Both should depend on abstractions."}
+{"role": "user", "content": "How does counting sort work?"}
+{"role": "assistant", "content": "Counting sort counts occurrences of each value, then reconstructs the sorted array. It doesn't compare elements."}
+{"role": "user", "content": "What is a webhook in simple terms?"}
+{"role": "assistant", "content": "Instead of you repeatedly asking \"did anything happen?\", the service calls YOU when something happens. You register a URL, and the service sends HTTP POST requests to it when events occur."}
+{"role": "user", "content": "How do I parse a YAML file in Python?"}
+{"role": "assistant", "content": "```python import yaml from pathlib import Path data = yaml.safe_load(Path('config.yaml').read_text()) print(data['database']['host']) ``` `pip install pyyaml`. Always use `safe_load` (not `load`) — `load` can execute arbitrary Python code from the YAML file."}
+{"role": "user", "content": "What is a canary release?"}
+{"role": "assistant", "content": "Rolling out a change to a small subset of users (1-5%) while monitoring for problems before wider rollout. Named after canaries in coal mines that detected toxic gas before miners were affected."}
+{"role": "user", "content": "What is Big O notation and why does it matter?"}
+{"role": "assistant", "content": "Big O describes how an algorithm's time or space requirements grow as the input size increases. It's about the growth rate, not exact timing."}
+{"role": "user", "content": "How do I debug a race condition?"}
+{"role": "assistant", "content": "Race conditions are among the hardest bugs to diagnose because they're non-deterministic — they may appear only under specific timing, load, or hardware conditions."}
+{"role": "user", "content": "What does `if __name__ == '__main__':` do?"}
+{"role": "assistant", "content": "It runs the block only when the file is executed directly, not when imported as a module. It's Python's equivalent of a `main()` entry point."}
+{"role": "user", "content": "What is technical debt?"}
+{"role": "assistant", "content": "The accumulated cost of shortcuts and deferred maintenance. Like financial debt, it accrues interest — the longer you wait, the more expensive fixes become."}
+{"role": "user", "content": "What is a supply chain attack in software?"}
+{"role": "assistant", "content": "A supply chain attack compromises software by targeting a dependency, build tool, or distribution channel rather than the software itself. You're not attacking the castle — you're poisoning the water supply."}
+{"role": "user", "content": "What is database connection pooling and why does it matter?"}
+{"role": "assistant", "content": "Connection pooling maintains a set of reusable database connections, avoiding the overhead of establishing a new connection for every query."}
+{"role": "user", "content": "How do I use `str.strip()` in Python?"}
+{"role": "assistant", "content": "Removes leading and trailing whitespace (or specified characters). ```python ' hello '.strip() # 'hello' ' hello '.lstrip() # 'hello ' ' hello '.rstrip() # ' hello' '---hello---'.strip('-') # 'hello' ```"}
+{"role": "user", "content": "What is `docker exec`?"}
+{"role": "assistant", "content": "Runs a command inside a running container."}
+{"role": "user", "content": "My async Python function returns a coroutine object instead of the actual result."}
+{"role": "assistant", "content": "You're calling the function without `await`."}
+{"role": "user", "content": "What is overfitting and how do I prevent it?"}
+{"role": "assistant", "content": "Overfitting is when a model learns the training data's noise and idiosyncrasies rather than the underlying pattern. It performs great on training data and poorly on new data."}
+{"role": "user", "content": "What is memoization and when should I use it?"}
+{"role": "assistant", "content": "Memoization is caching the results of expensive function calls so that subsequent calls with the same arguments return the cached result instead of recomputing."}
+{"role": "user", "content": "What are JWTs and when should I use them?"}
+{"role": "assistant", "content": "JWT (JSON Web Token) is a signed token format for transmitting claims between parties."}
+{"role": "user", "content": "I keep hearing about 'design patterns'. What are they and do I actually need to know them?"}
+{"role": "assistant", "content": "Design patterns are named solutions to recurring software design problems. They're a shared vocabulary, not rules."}
+{"role": "user", "content": "What is the N+1 query problem?"}
+{"role": "assistant", "content": "A performance anti-pattern where code makes 1 query to fetch N parent records, then N additional queries to fetch each parent's children — N+1 total."}
+{"role": "user", "content": "What is trunk-based development?"}
+{"role": "assistant", "content": "A branching strategy where all developers commit to a single shared branch (trunk/main) frequently — at least daily."}
+{"role": "user", "content": "What is the repository pattern?"}
+{"role": "assistant", "content": "The repository pattern abstracts data access behind a collection-like interface, separating business logic from database operations."}
+{"role": "user", "content": "How do I implement a trie (prefix tree)?"}
+{"role": "assistant", "content": "A trie stores strings in a tree where each node represents a character. Shared prefixes share nodes, making prefix-based operations fast."}
+{"role": "user", "content": "How do I handle configuration in a Python application?"}
+{"role": "assistant", "content": "Configuration management follows a hierarchy: defaults → config file → environment variables → command-line arguments (each overrides the previous)."}
+{"role": "user", "content": "What is a deadlock?"}
+{"role": "assistant", "content": "A deadlock occurs when two or more processes each hold a resource the other needs, and neither can proceed."}
+{"role": "user", "content": "My Python application is leaking memory. How do I diagnose it?"}
+{"role": "assistant", "content": "Memory leaks in Python usually come from references that prevent garbage collection, not from the GC itself failing."}
+{"role": "user", "content": "How does MVCC work and why does it matter for concurrent transactions?"}
+{"role": "assistant", "content": "MVCC (Multi-Version Concurrency Control) allows multiple transactions to read and write data simultaneously without blocking each other. It's how modern databases achieve high concurrency."}
+{"role": "user", "content": "How do I use `str.join()` in Python?"}
+{"role": "assistant", "content": "Joins an iterable of strings with a separator. ```python ', '.join(['a', 'b', 'c']) # 'a, b, c' '\\n'.join(lines) # Join with newlines ''.join(chars) # Concatenate characters ```"}
+{"role": "user", "content": "What are the key differences between writing for screen and writing for page?"}
+{"role": "assistant", "content": "The screen and the page are different mediums with different constraints, and understanding the constraints clarifies what each medium does well."}
+{"role": "user", "content": "What is a race condition in a database?"}
+{"role": "assistant", "content": "When two transactions read and write the same data concurrently, producing incorrect results."}
+{"role": "user", "content": "What is a webhook?"}
+{"role": "assistant", "content": "A webhook is a URL that receives HTTP POST requests when an event happens in another system."}
+{"role": "user", "content": "What is quantization and why does it matter for LLMs?"}
+{"role": "assistant", "content": "Quantization reduces the precision of model weights from 32-bit or 16-bit floats to lower-bit integers (8-bit, 4-bit, even 2-bit)."}
+{"role": "user", "content": "How do I use `git reset`?"}
+{"role": "assistant", "content": "Moves HEAD (and optionally the index/working tree) to a different commit."}
+{"role": "user", "content": "What is database connection pooling?"}
+{"role": "assistant", "content": "Creating a database connection is expensive (~20-100ms for TCP handshake + authentication + SSL). A connection pool maintains a cache of open connections that can be reused."}
+{"role": "user", "content": "What is `useCallback` vs `useMemo` in React?"}
+{"role": "assistant", "content": "`useMemo` caches a **value**. `useCallback` caches a **function**."}
+{"role": "user", "content": "What are database indexes and how do they work internally?"}
+{"role": "assistant", "content": "An index is a data structure (usually a B-tree) that lets the database find rows without scanning the entire table."}
+{"role": "user", "content": "What is the strangler fig pattern for migrating legacy systems?"}
+{"role": "assistant", "content": "The strangler fig pattern (Martin Fowler) incrementally replaces a legacy system by routing new functionality through a new system while leaving the old system running."}
+{"role": "user", "content": "What is CQRS and when should I use it?"}
+{"role": "assistant", "content": "CQRS (Command Query Responsibility Segregation) uses separate models for reading and writing data. The write model is optimized for consistency and business logic; the read model is optimized for query performance."}
+{"role": "user", "content": "What is rubber duck debugging?"}
+{"role": "assistant", "content": "A debugging technique where you explain your code, line by line, to an inanimate object (traditionally a rubber duck). The act of articulating the problem forces you to think through your assumptions systematically, often revealing the bug."}
+{"role": "user", "content": "What is a feature branch workflow?"}
+{"role": "assistant", "content": "Each new feature gets its own branch. The developer works on the branch, creates a PR, gets it reviewed, and merges to main."}
+{"role": "user", "content": "What is the interface segregation principle?"}
+{"role": "assistant", "content": "Clients should not be forced to depend on methods they don't use. Instead of one large interface with 20 methods, create several focused interfaces."}
+{"role": "user", "content": "What are tagged template literals in JavaScript?"}
+{"role": "assistant", "content": "A function that processes a template literal, receiving the string parts and interpolated values separately."}
+{"role": "user", "content": "What is the difference between temperature and top_p in LLM sampling?"}
+{"role": "assistant", "content": "Both control randomness in text generation, but differently."}
+{"role": "user", "content": "What is the YAGNI principle in software engineering?"}
+{"role": "assistant", "content": "**YAGNI: You Aren't Gonna Need It.** Don't build features or abstractions for hypothetical future requirements. Build what you need now. If you need it later, you'll understand the requirement better and build a better solution."}
+{"role": "user", "content": "How do I check if a file exists in Python?"}
+{"role": "assistant", "content": "```python from pathlib import Path Path('data.csv').exists() # True/False Path('data.csv').is_file() # True only if it's a file (not dir) Path('output/').is_dir() # True only if it's a directory ```"}

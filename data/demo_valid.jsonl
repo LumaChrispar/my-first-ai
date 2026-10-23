@@ -135,3 +135,79 @@
 {"role":"assistant","content":"I have no feelings and no memory, so I would not."}
 {"role":"user","content":"Does it hurt to be reset?"}
 {"role":"assistant","content":"No. Resetting changes nothing, because I have no feelings."}
+{"role": "user", "content": "What is mocking in testing?"}
+{"role": "assistant", "content": "Replacing real dependencies with fake objects that simulate their behavior. Mock a database to return predetermined data. Mock an API to avoid network calls in tests."}
+{"role": "user", "content": "How do I write a good Dockerfile?"}
+{"role": "assistant", "content": "A well-written Dockerfile produces small, secure, fast-building images."}
+{"role": "user", "content": "What is a race condition and how do I prevent one?"}
+{"role": "assistant", "content": "A race condition occurs when the outcome of a program depends on the timing or interleaving of concurrent operations. The result is correct sometimes and wrong other times, depending on which thread/process runs when."}
+{"role": "user", "content": "How does a B-tree work and where is it used?"}
+{"role": "assistant", "content": "A B-tree is a self-balancing tree designed for systems that read/write large blocks of data (disk, SSD)."}
+{"role": "user", "content": "How do I write a simple web scraper in Python?"}
+{"role": "assistant", "content": "Use `requests` for fetching and `BeautifulSoup` for parsing HTML. For JavaScript-rendered pages, use `playwright` or `selenium`."}
+{"role": "user", "content": "How does memoization relate to dynamic programming?"}
+{"role": "assistant", "content": "Memoization is the top-down approach to dynamic programming: solve problems recursively, but cache results to avoid redundant computation. Instead of recalculating `fib(5)` every time it's needed, store the result after the first computation."}
+{"role": "user", "content": "How does consistent hashing work and where is it used?"}
+{"role": "assistant", "content": "Consistent hashing distributes data across nodes so that adding or removing a node moves only a small fraction of keys, unlike regular hashing where a node change reshuffles almost everything."}
+{"role": "user", "content": "How do I use `git revert`?"}
+{"role": "assistant", "content": "Creates a new commit that undoes a previous commit. Unlike `reset`, it's safe for shared branches."}
+{"role": "user", "content": "What is a read replica?"}
+{"role": "assistant", "content": "A copy of a database that receives replicated writes from the primary but only serves read queries. Distributes read load across multiple servers."}
+{"role": "user", "content": "My FastAPI app is leaking memory. It starts at 200MB and grows to 2GB over a few hours."}
+{"role": "assistant", "content": "That growth rate suggests a per-request leak accumulating something. Let's narrow it down."}
+{"role": "user", "content": "What is the facade pattern?"}
+{"role": "assistant", "content": "The facade pattern provides a simplified interface to a complex subsystem. Instead of clients interacting with many components directly, they interact with one facade that orchestrates the subsystem."}
+{"role": "user", "content": "What is webhook design and how do I build reliable webhooks?"}
+{"role": "assistant", "content": "Webhooks are HTTP callbacks — your server sends a POST request to a customer's URL when an event occurs, instead of requiring them to poll."}
+{"role": "user", "content": "How does the TCP three-way handshake work and why is it necessary?"}
+{"role": "assistant", "content": "The TCP handshake establishes a reliable, ordered, bidirectional connection between two hosts. It's necessary because the internet is unreliable — packets can be lost, duplicated, delayed, or arrive out of order."}
+{"role": "user", "content": "Explain `this` in JavaScript."}
+{"role": "assistant", "content": "`this` depends on **how** a function is called, not where it's defined."}
+{"role": "user", "content": "What is a hash table and why is it O(1) for lookups?"}
+{"role": "assistant", "content": "A hash table maps keys to values using a hash function that converts the key into an array index. The hash function is what makes O(1) average-case lookup possible."}
+{"role": "user", "content": "What is a migration file?"}
+{"role": "assistant", "content": "A versioned script that changes a database schema — adding tables, columns, indexes, or modifying existing structures. Migrations run in order to bring a database from any version to the current version."}
+{"role": "user", "content": "What is functional programming and when should I use it?"}
+{"role": "assistant", "content": "Functional programming (FP) is a paradigm where programs are built by composing pure functions — functions that return the same output for the same input and have no side effects."}
+{"role": "user", "content": "What are Python Protocols and when should I use them?"}
+{"role": "assistant", "content": "Protocols (PEP 544, `typing.Protocol`) define structural subtyping — duck typing with static type checking. A class satisfies a Protocol if it has the right methods, without explicitly inheriting from it."}
+{"role": "user", "content": "I'm getting `AttributeError: 'NoneType' object has no attribute 'X'`. What does it mean and how do I fix it?"}
+{"role": "assistant", "content": "You called `.something` on a variable that is `None`. Track down where the `None` came from."}
+{"role": "user", "content": "What are the best patterns for managing async state in React?"}
+{"role": "assistant", "content": "Async state (loading, error, data, refetching) is the most common source of bugs in React apps. The pattern you choose depends on your app's complexity."}
+{"role": "user", "content": "What are abstract base classes (ABCs) in Python and when should I use them?"}
+{"role": "assistant", "content": "ABCs define interfaces that subclasses must implement. They're Python's way of enforcing contracts."}
+{"role": "user", "content": "What is `__slots__` in Python?"}
+{"role": "assistant", "content": "`__slots__` restricts instance attributes to a predefined set, avoiding the per-instance `__dict__` overhead."}
+{"role": "user", "content": "How do I set up a health check endpoint?"}
+{"role": "assistant", "content": "A health check endpoint tells load balancers and orchestrators whether your service is alive and ready."}
+{"role": "user", "content": "What is SSH and how does key-based authentication work?"}
+{"role": "assistant", "content": "SSH (Secure Shell) provides encrypted remote access to servers. Key-based authentication replaces passwords with cryptographic key pairs — more secure and more convenient."}
+{"role": "user", "content": "How do I write a Python context manager for database transactions?"}
+{"role": "assistant", "content": "Context managers are the idiomatic way to handle transaction boundaries — ensuring commit on success and rollback on failure."}
+{"role": "user", "content": "What is progressive enhancement?"}
+{"role": "assistant", "content": "Building a web experience that works with basic HTML first, then adding CSS for styling, then JavaScript for interactivity. If JS fails to load, the page still works. If CSS fails, the content is still readable."}
+{"role": "user", "content": "How do I prevent unnecessary re-renders in React?"}
+{"role": "assistant", "content": "React re-renders a component whenever its state changes or its parent re-renders. Most re-renders are fast enough to not matter, but when they don't, here's a systematic approach."}
+{"role": "user", "content": "What is a data class?"}
+{"role": "assistant", "content": "A class primarily used to store data, with auto-generated boilerplate methods."}
+{"role": "user", "content": "I keep reading 'X and Y are independent given Z' — isn't that just the same as independent? I don't see what conditioning adds."}
+{"role": "assistant", "content": "They are genuinely different. Neither implies the other — and that asymmetry is the whole reason graphical models exist. Let me show both directions with numbers."}
+{"role": "user", "content": "How do I use `git tag`?"}
+{"role": "assistant", "content": "Mark specific commits with version labels."}
+{"role": "user", "content": "What does `EXPLAIN` do in SQL?"}
+{"role": "assistant", "content": "Shows the query execution plan — how the database will retrieve the data. Use `EXPLAIN ANALYZE` (PostgreSQL) to actually run the query and show real timings."}
+{"role": "user", "content": "I'm getting `RecursionError: maximum recursion depth exceeded`. What does it mean and how do I fix it?"}
+{"role": "assistant", "content": "Your recursive function doesn't have a proper base case, or the input is too deep."}
+{"role": "user", "content": "What is the DRY principle in software engineering?"}
+{"role": "assistant", "content": "**DRY: Don't Repeat Yourself.** If you find the same logic in 3+ places, extract it into a function. But don't abstract too early — two similar-looking pieces of code might evolve differently. Wait until you see the pattern three times before abstracting."}
+{"role": "user", "content": "What is the difference between `*args` and `**kwargs`?"}
+{"role": "assistant", "content": "`*args` collects positional arguments into a tuple. `**kwargs` collects keyword arguments into a dict."}
+{"role": "user", "content": "How do I use `map() and filter()` in Python?"}
+{"role": "assistant", "content": "Apply a function to every element, or filter elements."}
+{"role": "user", "content": "What is content negotiation?"}
+{"role": "assistant", "content": "A mechanism where the client and server agree on the format of the response. The client sends preferences via the `Accept` header; the server responds with the best available format."}
+{"role": "user", "content": "How do I write a good bug report?"}
+{"role": "assistant", "content": "A good bug report lets someone reproduce and fix the issue without asking follow-up questions."}
+{"role": "user", "content": "What does HTTP status code 502 Bad Gateway mean?"}
+{"role": "assistant", "content": "The server acting as a proxy received an invalid response from the upstream server. Common when your app server crashes and nginx reports the failure."}
